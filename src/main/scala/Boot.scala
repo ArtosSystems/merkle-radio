@@ -4,19 +4,18 @@ object Boot extends App {
   val duration = 1000
   var frequency = 440
 
-  val intervalGap = Math.pow(2.0, 1/12)
-  println(intervalGap) // TODO: this should round to 1.0
+  val intervalGap = Math.pow(2.0, 1.0/12)
 
-  play(440, 750)
-//  play(440 * Math.pow(intervalGap, 2), 750)
-//  play(440 * Math.pow(intervalGap, 4), 750)
-//  play(440 * Math.pow(intervalGap, 5), 750)
-//  play(440 * Math.pow(intervalGap, 7), 750)
-//  play(440 * Math.pow(intervalGap, 9), 750)
-//  play(440 * Math.pow(intervalGap, 11), 750)
-  play(440 * Math.pow(intervalGap, 12), 750)
+  play(440, 500)
+  play(440 * Math.pow(intervalGap, 2), 500)
+  play(440 * Math.pow(intervalGap, 4), 500)
+  play(440 * Math.pow(intervalGap, 5), 500)
+  play(440 * Math.pow(intervalGap, 7), 500)
+  play(440 * Math.pow(intervalGap, 9), 500)
+  play(440 * Math.pow(intervalGap, 11), 500)
+  play(440 * Math.pow(intervalGap, 12), 500)
 
-  def play(frequency: Double, duration: Int) = {
+  def play(frequency: Double, duration: Int): Unit = {
     val rate = 44100.toFloat
     val buf = new Array[Byte](1)
     val af = new AudioFormat(rate, 8, 1, true, false)
