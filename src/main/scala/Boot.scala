@@ -1,50 +1,44 @@
+import BeatMaker.{Note, Up}
 import com.jsyn.{JSyn, Synthesizer}
 import com.jsyn.unitgen.LineOut
 import com.jsyn.unitgen.SawtoothOscillatorBL
 
 object Boot extends App {
+  val beatMaker = init()
 
-  // Start JSyn synthesizer.
-  val synthesizer: Synthesizer = JSyn.createSynthesizer()
+  val tonic = Note(440, .5)
 
-  // Create some unit generators.
-  val osc = new SawtoothOscillatorBL
-  val lineOut = new LineOut
+  beatMaker.play(tonic)
+  beatMaker.play(tonic.`2M`(Up))
+  beatMaker.play(tonic.`3M`(Up))
+  beatMaker.play(tonic.`4`(Up))
+  beatMaker.play(tonic.`5j`(Up))
+  beatMaker.play(tonic.`6M`(Up))
+  beatMaker.play(tonic.`7M`(Up))
+  beatMaker.play(tonic.octave(Up))
 
-  synthesizer.add(osc)
-  synthesizer.add(lineOut)
+  beatMaker.stop()
 
-  // Connect oscillator to both left and right channels of output.
-  osc.output.connect(0, lineOut.input, 0)
-  osc.output.connect(0, lineOut.input, 1)
+  private def init() = {
+    // Start JSyn synthesizer.
+    val synthesizer: Synthesizer = JSyn.createSynthesizer()
 
-  // Start the unit generators so they make sound.
-  osc.start()
-  lineOut.start()
-  synthesizer.start()
+    // Create some unit generators.
+    val osc = new SawtoothOscillatorBL
+    val lineOut = new LineOut
 
-  val intervalGap = Math.pow(2.0, 1.0/12)
+    synthesizer.add(osc)
+    synthesizer.add(lineOut)
 
-  play(Note(440, 1.0))
-  play(Note(440 * Math.pow(intervalGap, 2), 1.0))
-  play(Note(440 * Math.pow(intervalGap, 4), 1.0))
-  play(Note(440 * Math.pow(intervalGap, 5), 1.0))
-  play(Note(440 * Math.pow(intervalGap, 7), 1.0))
-  play(Note(440 * Math.pow(intervalGap, 9), 1.0))
-  play(Note(440 * Math.pow(intervalGap, 11), 1.0))
-  play(Note(440 * Math.pow(intervalGap, 12), 1.0))
+    // Connect oscillator to both left and right channels of output.
+    osc.output.connect(0, lineOut.input, 0)
+    osc.output.connect(0, lineOut.input, 1)
 
-  // Stop units and delete them to reclaim their resources.
-  osc.stop()
-  lineOut.stop()
-  synthesizer.stop()
+    // Start the unit generators so they make sound.
+    osc.start()
+    lineOut.start()
+    synthesizer.start()
 
-  def play(note: Note): Unit = {
-    osc.frequency.set(note.frequency)
-    osc.amplitude.set(0.8)
-
-    synthesizer.sleepFor(note.duration)
+    new BeatMaker(synthesizer, osc, lineOut: LineOut)
   }
 }
-
-case class Note(frequency: Double, duration: Double)
