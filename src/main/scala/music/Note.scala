@@ -35,7 +35,7 @@ case class Note(frequency: Double, rhythm: Rhythm) {
 
     case Down => copy(
       rhythm = rhythm,
-      frequency = Math.pow(intervalGap, interval.toDouble) / frequency
+      frequency = frequency * Math.pow(intervalGap, -interval.toDouble)
     )
   }
 }
