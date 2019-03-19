@@ -35,7 +35,7 @@ object BeatMaker {
     def `7M`(direction: Direction) = gap(11)
     def octave(direction: Direction) = copy(frequency = frequency * 2)
 
-    private def gap(interval: Int) = copy(frequency = 440 * Math.pow(intervalGap, interval))
+    private def gap(interval: Int) = copy(frequency = frequency * Math.pow(intervalGap, interval))
   }
 
   sealed trait Direction
