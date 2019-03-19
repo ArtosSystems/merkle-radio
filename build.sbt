@@ -63,7 +63,7 @@ lazy val root = (project in file("."))
       "com.jsyn"                      %  "jsyn"                         % "20170815",
       "io.artos"                      %% "activity-model"               % "0.18.1",
       "io.aventus"                    %% "aventus4s"                    % "0.5.1-0.12",
-
+      "com.typesafe.akka"             %% "akka-http"                    % "10.1.7"
     )
   )
 

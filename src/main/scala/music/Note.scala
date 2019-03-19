@@ -1,5 +1,8 @@
 package music
 
+import io.circe.Encoder
+import io.circe.generic.semiauto._
+
 case class Note(frequency: Double, rhythm: Rhythm) {
   private lazy val intervalGap = Math.pow(2.0, 1.0/12)
 
@@ -40,6 +43,10 @@ case class Note(frequency: Double, rhythm: Rhythm) {
   }
 }
 
+object Note {
+  implicit val encoder: Encoder[Note] = deriveEncoder
+}
+
 sealed trait Direction
 case object Up extends Direction
 case object Down extends Direction
@@ -49,3 +56,12 @@ case object White extends Rhythm
 case object Black extends Rhythm
 case object DDouble extends Rhythm
 case object Quadruple extends Rhythm
+
+object Rhythm {
+  implicit val encoder: Encoder[Rhythm] = Encoder[String].contramap({
+    case _: White.type => "white"
+    case _: Black.type => "black"
+    case _: DDouble.type => "double"
+    case _: Quadruple.type => "quadruple"
+  })
+}
