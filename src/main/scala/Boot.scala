@@ -1,18 +1,28 @@
-import music.{BeatMaker, Note, Up}
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{Sink, Source}
+import decoder.BasicChromaticScaleDecoder
+import io.artos.activities.{MerkleTreeCreatedActivity, TraceData}
+import music.{BeatMaker, Black, Note}
 
 object Boot extends App {
+  implicit val system: ActorSystem = ActorSystem()
+  implicit val mat: ActorMaterializer = ActorMaterializer()
+
   val beatMaker = BeatMaker()
 
-  val tonic = Note(440, .5)
+  val tempo = 100
 
-  beatMaker.play(tonic)
-  beatMaker.play(tonic.`2M`(Up))
-  beatMaker.play(tonic.`3M`(Up))
-  beatMaker.play(tonic.`4`(Up))
-  beatMaker.play(tonic.`5j`(Up))
-  beatMaker.play(tonic.`6M`(Up))
-  beatMaker.play(tonic.`7M`(Up))
-  beatMaker.play(tonic.octave(Up))
+  val tonic = Note(440, Black)
 
-  beatMaker.stop()
+  private val root = MerkleTreeCreatedActivity(TraceData.newTrace("test"), "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", 2, 0)
+
+  val source = Source(List(root))
+  val flow = new BasicChromaticScaleDecoder(tonic).decode
+  val sink = Sink.foreach[Note] { note =>
+    println(note)
+//    beatMaker.play(tempo)(note)
+  }
+
+  source via flow runWith sink
 }

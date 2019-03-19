@@ -4,13 +4,13 @@ import com.jsyn.{JSyn, Synthesizer}
 import com.jsyn.unitgen.{LineOut, SawtoothOscillatorBL}
 
 class BeatMaker(synthesizer: Synthesizer, osc: SawtoothOscillatorBL, lineOut: LineOut) {
-  def play(note: Note): Unit = {
-    println(note.frequency)
-    osc.frequency.set(note.frequency)
-    osc.amplitude.set(0.8)
-
-    synthesizer.sleepFor(note.duration)
-  }
+//  def play(tempo: Int)(note: Note): Unit = {
+//    println(note.frequency)
+//    osc.frequency.set(note.frequency)
+//    osc.amplitude.set(0.8)
+//
+//    synthesizer.sleepFor(note.duration(tempo))
+//  }
 
   def stop(): Unit = {
     osc.stop()

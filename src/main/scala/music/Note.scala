@@ -1,24 +1,51 @@
 package music
 
-case class Note(frequency: Double, duration: Double) {
+case class Note(frequency: Double, rhythm: Rhythm) {
   private lazy val intervalGap = Math.pow(2.0, 1.0/12)
 
-  def `2m`(direction: Direction) = gap(1)
-  def `2M`(direction: Direction) = gap(2)
-  def `3m`(direction: Direction) = gap(3)
-  def `3M`(direction: Direction) = gap(4)
-  def `4`(direction: Direction) = gap(5)
-  def `5dim`(direction: Direction) = gap(6)
-  def `5j`(direction: Direction) = gap(7)
-  def `6m`(direction: Direction) = gap(8)
-  def `6M`(direction: Direction) = gap(9)
-  def `7m`(direction: Direction) = gap(10)
-  def `7M`(direction: Direction) = gap(11)
-  def octave(direction: Direction) = copy(frequency = frequency * 2)
+  def duration(tempo: Int): Double = {
+    val d = 60 / tempo.toDouble
 
-  private def gap(interval: Int) = copy(frequency = frequency * Math.pow(intervalGap, interval))
+    rhythm match {
+      case White => d * 2
+      case Black => d
+      case DDouble => d / 2
+      case Quadruple => d / 4
+    }
+  }
+
+  def `2m` = gap(1)(_, _)
+  def `2M` = gap(2)(_, _)
+  def `3m` = gap(3)(_, _)
+  def `3M` = gap(4)(_, _)
+  def `4` = gap(5)(_, _)
+  def `5dim` = gap(6)(_, _)
+  def `5j` = gap(7)(_, _)
+  def `6m` = gap(8)(_, _)
+  def `6M` = gap(9)(_, _)
+  def `7m` = gap(10)(_, _)
+  def `7M` = gap(11)(_, _)
+  def octave = gap(12)(_, _)
+
+  private def gap(interval: Int)(direction: Direction, rhythm: Rhythm) = direction match {
+    case Up   => copy(
+      rhythm = rhythm,
+      frequency = frequency * Math.pow(intervalGap, interval.toDouble)
+    )
+
+    case Down => copy(
+      rhythm = rhythm,
+      frequency = Math.pow(intervalGap, interval.toDouble) / frequency
+    )
+  }
 }
 
 sealed trait Direction
 case object Up extends Direction
 case object Down extends Direction
+
+sealed trait Rhythm
+case object White extends Rhythm
+case object Black extends Rhythm
+case object DDouble extends Rhythm
+case object Quadruple extends Rhythm
