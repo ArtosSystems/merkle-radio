@@ -7,27 +7,28 @@ import music._
 
 class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
+  // TODO: Define high-level patterns
+  // TODO: Reduce the steps (add context)
   override def decode: Flow[MerkleTreeCreatedActivity, Note, NotUsed] = Flow[MerkleTreeCreatedActivity]
     .map(_.merkleRoot)
     .map(_.drop(2))
     .mapConcat[String](_.sliding(3, 3).toList)
     .map(_.toList)
-    .map {
+    .mapConcat {
       case noteStr :: rhythmStr :: directionStr :: Nil =>
         val direction = directionMap(directionStr)
         val rhythm = rhythmMap(rhythmStr)
 
-        val nextNote = notesMap(noteStr)(tonic)(direction, rhythm)
+        val noteFactory = notesMap(_: Char)(tonic)(direction, rhythm)
 
         rhythm match {
-          case DDouble   => nextNote :: QuickStop :: nextNote :: Nil
-          case Quadruple => nextNote :: QuickStop :: nextNote :: QuickStop :: nextNote :: QuickStop :: nextNote :: Nil
-          case _         => nextNote :: Nil
+          case DDouble   => noteFactory(noteStr) :: QuickStop :: noteFactory(directionStr) :: Nil
+          case Quadruple => noteFactory(noteStr) :: QuickStop :: noteFactory(rhythmStr) :: QuickStop :: noteFactory(directionStr) :: QuickStop :: noteFactory(noteStr) :: Nil
+          case _         => noteFactory(noteStr) :: Nil
         }
 
-      case _ => Nil
+      case _ => Nil // TODO: tonic
     }
-    .mapConcat(identity)
 
   private val directionMap: Map[Char, Direction] = Map(
     '0' -> Down,
