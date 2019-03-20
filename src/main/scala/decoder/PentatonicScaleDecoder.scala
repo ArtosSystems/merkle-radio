@@ -27,7 +27,7 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
           case _         => noteFactory(noteStr) :: Nil
         }
 
-      case _ => Nil // TODO: tonic
+      case _ => tonic.tonic(Up, White) :: Nil
     }
 
   private val directionMap: Map[Char, Direction] = Map(
