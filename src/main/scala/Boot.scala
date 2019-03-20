@@ -6,7 +6,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import decoder.BasicChromaticScaleDecoder
 import io.artos.activities.{MerkleTreeCreatedActivity, TraceData}
 import music.{BeatMaker, Black, Note}
-import websocket.NoteService
+import websocket.{ServiceHandlers, WsServer}
 
 import scala.concurrent.Future
 
@@ -36,7 +36,7 @@ object Boot extends App {
 
   ///// WebSocket \\\\\ TODO refactoring
 
-  val noteService = new NoteService(source via flow)
+  val wsServer = WsServer(new ServiceHandlers(source via flow))
 
   val serverSource = Http().bind(interface = "localhost", port = 8080)
 
@@ -44,6 +44,6 @@ object Boot extends App {
     serverSource.to(Sink.foreach { connection =>
       println("Accepted new connection from " + connection.remoteAddress)
 
-      connection handleWithSyncHandler noteService.requestHandler
+      connection handleWithSyncHandler wsServer.requestHandler
     }).run()
 }
