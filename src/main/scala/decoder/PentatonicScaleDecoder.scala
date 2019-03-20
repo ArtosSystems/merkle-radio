@@ -15,7 +15,7 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     .map {
       case noteStr :: rhythmStr :: directionStr :: Nil =>
         val direction = directionMap(directionStr)
-        val rhythm = rythmeMap(rhythmStr)
+        val rhythm = rhythmMap(rhythmStr)
 
         val nextNote = notesMap(noteStr)(tonic)(direction, rhythm)
 
@@ -48,11 +48,11 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     'f' -> Up,
   )
 
-  private val rythmeMap: Map[Char, Rhythm] = Map(
+  private val rhythmMap: Map[Char, Rhythm] = Map(
     '0' -> White,
     '4' -> White,
-    '8' -> White,
-    'c' -> White,
+    '8' -> Black,
+    'c' -> Black,
     '1' -> Black,
     '5' -> Black,
     '9' -> Black,
@@ -61,8 +61,8 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     '6' -> DDouble,
     'a' -> DDouble,
     'e' -> DDouble,
-    '3' -> Quadruple,
-    '7' -> Quadruple,
+    '3' -> DDouble,
+    '7' -> DDouble,
     'b' -> Quadruple,
     'f' -> Quadruple,
   )
