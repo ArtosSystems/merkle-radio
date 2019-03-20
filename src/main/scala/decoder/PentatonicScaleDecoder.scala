@@ -32,10 +32,10 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
             q :: Nil
 
           case (s @ Sound(_, _, gap), ls @ Sound(_, _, lastGap)) if Math.abs(gap - lastGap) == 4 =>
-            ls :: ls.toTonic.`3m`(direction, Quadruple) :: ls.toTonic.`4`(direction, Quadruple) :: ls.toTonic.`5j`(direction, Quadruple) :: s :: Nil
+            ls.toTonic.`3m`(direction, Quadruple) :: ls.toTonic.`4`(direction, Quadruple) :: ls.toTonic.`5j`(direction, Quadruple) :: s.toTonic.tonic(direction, Quadruple) :: Nil
 
-          case (s @ Sound(_, _, gap), ls @ Sound(_, _, lastGap)) if Math.abs(gap - lastGap) > maxGap =>
-            ls +: fillUpGap(direction, lastNoteStr, noteStr) :+ s
+          case (s @ Sound(_, _, gap), Sound(_, _, lastGap)) if Math.abs(gap - lastGap) > maxGap =>
+            fillUpGap(direction, lastNoteStr, noteStr) :+ s
 
           case (s @ Sound(_, _, gap), _) =>
             s :: Nil
