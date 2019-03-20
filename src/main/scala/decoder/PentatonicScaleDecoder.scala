@@ -5,7 +5,7 @@ import akka.stream.scaladsl.Flow
 import io.artos.activities.MerkleTreeCreatedActivity
 import music._
 
-class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
+class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
   override def decode: Flow[MerkleTreeCreatedActivity, Note, NotUsed] = Flow[MerkleTreeCreatedActivity]
     .map(_.merkleRoot)
@@ -15,13 +15,13 @@ class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     .map {
       case noteStr :: rhythmStr :: directionStr :: Nil =>
         val direction = directionMap(directionStr)
-        val rhythm = rythmeMap(rhythmStr)
+        val rhythm = rhythmMap(rhythmStr)
 
         val nextNote = notesMap(noteStr)(tonic)(direction, rhythm)
 
         rhythm match {
-          case DDouble   => nextNote :: nextNote :: Nil
-          case Quadruple => nextNote :: nextNote :: nextNote :: nextNote :: Nil
+          case DDouble   => nextNote :: QuickStop :: nextNote :: Nil
+          case Quadruple => nextNote :: QuickStop :: nextNote :: QuickStop :: nextNote :: QuickStop :: nextNote :: Nil
           case _         => nextNote :: Nil
         }
 
@@ -48,11 +48,11 @@ class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     'f' -> Up,
   )
 
-  private val rythmeMap: Map[Char, Rhythm] = Map(
+  private val rhythmMap: Map[Char, Rhythm] = Map(
     '0' -> White,
     '4' -> White,
-    '8' -> White,
-    'c' -> White,
+    '8' -> Black,
+    'c' -> Black,
     '1' -> Black,
     '5' -> Black,
     '9' -> Black,
@@ -61,28 +61,37 @@ class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     '6' -> DDouble,
     'a' -> DDouble,
     'e' -> DDouble,
-    '3' -> Quadruple,
-    '7' -> Quadruple,
+    '3' -> DDouble,
+    '7' -> DDouble,
     'b' -> Quadruple,
     'f' -> Quadruple,
   )
 
   private val notesMap: Map[Char, Tonic => (Direction, Rhythm) => Note] = Map(
-    '0' -> (n => n.octave),
-    '1' -> (n => n.`2m`),
-    '2' -> (n => n.`2M`),
-    '3' -> (n => n.`3m`),
-    '4' -> (n => n.`3M`),
-    '5' -> (n => n.`4`),
-    '6' -> (n => n.`5dim`),
-    '7' -> (n => n.`5j`),
-    '8' -> (n => n.`6m`),
-    '9' -> (n => n.`6M`),
-    'a' -> (n => n.`7m`),
-    'b' -> (n => n.`7M`),
-    'c' -> (n => n.octave),
-    'd' -> (n => n.octave),
-    'e' -> (n => n.octave),
-    'f' -> (n => n.octave),
+    '0' -> (n => (_, r) => n.rest(r)),
+
+    '1' -> (_.tonic),
+    '2' -> (_.`3m`),
+    '3' -> (_.`4`),
+    '4' -> (_.`5j`),
+    '5' -> (_.`7m`),
+
+    '6' -> octaveUp(_.tonic),
+    '7' -> octaveUp(_.`2m`),
+    '8' -> octaveUp(_.`4`),
+    '9' -> octaveUp(_.`5j`),
+    'a' -> octaveUp(_.`7m`),
+
+    'b' -> octaveDown(_.tonic),
+    'c' -> octaveDown(_.`2m`),
+    'd' -> octaveDown(_.`4`),
+    'e' -> octaveDown(_.`5j`),
+    'f' -> octaveDown(_.`7m`),
   )
+
+  private def octaveDown(gap: Tonic => (Direction, Rhythm) => Note)(n: Tonic) =
+    (d: Direction, r: Rhythm) => gap(n.octave(Down, r).toTonic)(d, r)
+
+  private def octaveUp(gap: Tonic => (Direction, Rhythm) => Note)(n: Tonic) =
+    (d: Direction, r: Rhythm) => gap(n.octave(Up, r).toTonic)(d, r)
 }

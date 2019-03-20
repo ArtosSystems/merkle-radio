@@ -3,17 +3,37 @@ package music
 import com.jsyn.{JSyn, Synthesizer}
 import com.jsyn.unitgen.{LineOut, SawtoothOscillatorBL}
 
-class BeatMaker(synthesizer: Synthesizer, osc: SawtoothOscillatorBL, lineOut: LineOut) {
-  def play(tempo: Int)(note: Note): Unit = {
-    println(note.frequency)
-    osc.frequency.set(note.frequency)
-    osc.amplitude.set(0.8)
+class BeatMaker(synthesizer: Synthesizer, osc1: SawtoothOscillatorBL, osc2: SawtoothOscillatorBL, osc3: SawtoothOscillatorBL, lineOut: LineOut) {
+  def play(tempo: Int)(note: Note): Unit = note match {
+    case Sound(frequency, _) =>
+      osc1.start()
+      osc2.start()
+      osc3.start()
+      lineOut.start()
 
-    synthesizer.sleepFor(note.duration(tempo))
+      osc1.frequency.set(frequency)
+      osc1.amplitude.set(0.8)
+
+      osc2.frequency.set(frequency * 2)
+      osc2.amplitude.set(0.6)
+
+      osc3.frequency.set(frequency * 3/2)
+      osc3.amplitude.set(0.5)
+
+      synthesizer.sleepFor(note.duration(tempo))
+
+      osc1.stop()
+      osc2.stop()
+      osc3.stop()
+      lineOut.stop()
+
+    case _ =>
+      synthesizer.sleepFor(note.duration(tempo))
   }
 
   def stop(): Unit = {
-    osc.stop()
+    osc1.stop()
+    osc2.stop()
     lineOut.stop()
     synthesizer.stop()
   }
@@ -25,21 +45,28 @@ object BeatMaker {
     val synthesizer: Synthesizer = JSyn.createSynthesizer()
 
     // Create some unit generators.
-    val osc = new SawtoothOscillatorBL
+    val osc1 = new SawtoothOscillatorBL
+    val osc2 = new SawtoothOscillatorBL
+    val osc3 = new SawtoothOscillatorBL
     val lineOut = new LineOut
 
-    synthesizer.add(osc)
+    synthesizer.add(osc1)
+    synthesizer.add(osc2)
+    synthesizer.add(osc3)
     synthesizer.add(lineOut)
 
     // Connect oscillator to both left and right channels of output.
-    osc.output.connect(0, lineOut.input, 0)
-    osc.output.connect(0, lineOut.input, 1)
+    osc1.output.connect(0, lineOut.input, 0)
+    osc1.output.connect(0, lineOut.input, 1)
+    osc2.output.connect(0, lineOut.input, 0)
+    osc2.output.connect(0, lineOut.input, 1)
+    osc3.output.connect(0, lineOut.input, 0)
+    osc3.output.connect(0, lineOut.input, 1)
 
     // Start the unit generators so they make sound.
-    osc.start()
     lineOut.start()
     synthesizer.start()
 
-    new BeatMaker(synthesizer, osc, lineOut)
+    new BeatMaker(synthesizer, osc1, osc2, osc3, lineOut)
   }
 }

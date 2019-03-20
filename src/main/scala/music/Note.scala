@@ -3,8 +3,8 @@ package music
 import io.circe.Encoder
 import io.circe.generic.semiauto._
 
-case class Note(frequency: Double, rhythm: Rhythm) {
-  private lazy val intervalGap = Math.pow(2.0, 1.0/12)
+sealed trait Note {
+  val rhythm: Rhythm
 
   def duration(tempo: Int): Double = {
     val d = 60 / tempo.toDouble
@@ -14,37 +14,21 @@ case class Note(frequency: Double, rhythm: Rhythm) {
       case Black => d
       case DDouble => d / 2
       case Quadruple => d / 4
+      case InterNote => d / 8
     }
   }
-
-  def `2m` = gap(1)(_, _)
-  def `2M` = gap(2)(_, _)
-  def `3m` = gap(3)(_, _)
-  def `3M` = gap(4)(_, _)
-  def `4` = gap(5)(_, _)
-  def `5dim` = gap(6)(_, _)
-  def `5j` = gap(7)(_, _)
-  def `6m` = gap(8)(_, _)
-  def `6M` = gap(9)(_, _)
-  def `7m` = gap(10)(_, _)
-  def `7M` = gap(11)(_, _)
-  def octave = gap(12)(_, _)
-
-  private def gap(interval: Int)(direction: Direction, rhythm: Rhythm) = direction match {
-    case Up   => copy(
-      rhythm = rhythm,
-      frequency = frequency * Math.pow(intervalGap, interval.toDouble)
-    )
-
-    case Down => copy(
-      rhythm = rhythm,
-      frequency = frequency * Math.pow(intervalGap, -interval.toDouble)
-    )
-  }
+}
+case class Rest(rhythm: Rhythm) extends Note
+case object QuickStop extends Note {
+  override val rhythm: Rhythm = InterNote
+}
+case class Sound(frequency: Double, rhythm: Rhythm) extends Note {
+  lazy val toTonic: Tonic = Tonic(frequency)
 }
 
 object Note {
-  implicit val encoder: Encoder[Note] = deriveEncoder
+  implicit val noteEncoder: Encoder[Note] = deriveEncoder
+  implicit val restEncoder: Encoder[Rest] = deriveEncoder
 }
 
 sealed trait Direction
@@ -56,6 +40,7 @@ case object White extends Rhythm
 case object Black extends Rhythm
 case object DDouble extends Rhythm
 case object Quadruple extends Rhythm
+case object InterNote extends Rhythm
 
 object Rhythm {
   implicit val encoder: Encoder[Rhythm] = Encoder[String].contramap({
