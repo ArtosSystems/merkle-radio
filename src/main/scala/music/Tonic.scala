@@ -1,6 +1,6 @@
 package music
 
-case class Tonic(frequency: Double) {
+case class Tonic(frequency: Double, totalGaps: Int = 0) {
   private lazy val intervalGap = Math.pow(2.0, 1.0/12)
 
   def tonic: (Direction, Rhythm) => Sound = gap(0)
@@ -21,12 +21,14 @@ case class Tonic(frequency: Double) {
   private def gap(interval: Int)(direction: Direction, rhythm: Rhythm) = direction match {
     case Up   => Sound(
       rhythm = rhythm,
-      frequency = frequency * Math.pow(intervalGap, interval.toDouble)
+      frequency = frequency * Math.pow(intervalGap, interval.toDouble),
+      intervalGap = interval + totalGaps
     )
 
     case Down => Sound(
       rhythm = rhythm,
-      frequency = frequency * Math.pow(intervalGap, -interval.toDouble)
+      frequency = frequency * Math.pow(intervalGap, -interval.toDouble),
+      intervalGap = -interval + totalGaps
     )
   }
 }

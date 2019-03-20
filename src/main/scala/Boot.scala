@@ -17,7 +17,7 @@ object Boot extends App {
 
   val beatMaker = BeatMaker()
 
-  val tempo = 170
+  val tempo = 100
 
   val tonic = Tonic(440)
 
@@ -30,7 +30,9 @@ object Boot extends App {
     beatMaker.play(tempo)(note)
   }
 
-  (new MerkleRootSource).source via flow runWith sink
+  (new MerkleRootSource).source.via(flow).runWith(sink).recover {
+    case e => println(e)
+  }
 
   ///// WebSocket \\\\\ TODO refactoring
 
