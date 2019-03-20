@@ -12,39 +12,53 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
   private val maxGap = 7 // more than  a 5th of difference
 
-  // TODO: Define high-level patterns
-  override def decode: Flow[MerkleTreeCreatedActivity, Note, NotUsed] = prepare
-    .mapConcat {
-      case (lastNoteStr :: lastRhythmStr :: lastDirectionStr :: Nil, noteStr :: rhythmStr :: directionStr :: Nil) =>
-        val direction = directionMap(directionStr)
-        val rhythm = rhythmMap(rhythmStr)
+  override def decode: Flow[String, Rhythm => Note, NotUsed] = Flow.fromGraph(GraphDSL.create() { implicit b =>
+    import GraphDSL.Implicits._
 
-        val noteFactory = notesMap(_: Char)(tonic)(direction, rhythm)
+    val in = b.add(Flow[String])
+    val zip = b.add(Zip[List[Char], List[Char]]())
+
+    val duplicate = Flow[String].map(s => (s, s))
+    val dropFirst = Flow[String].map(_.drop(2))
+    val dropLast = Flow[String].map(_.dropRight(2))
+    val extractTriplets = Flow[String].mapConcat[String](_.sliding(2, 2).toList).map(_.toList)
+    val offset = b.add(Unzip[String, String]())
+    val out = b.add(noteFactory)
+
+    in ~> duplicate ~> offset.in
+                       offset.out0 ~> dropFirst ~> extractTriplets ~> zip.in1
+                       offset.out1 ~> dropLast  ~> extractTriplets ~> zip.in0
+                                                                      zip.out ~> out
+
+    FlowShape(in.in, out.out)
+  })
+
+  private def noteFactory: Flow[(List[Char], List[Char]), Rhythm => Note, NotUsed] = Flow[(List[Char], List[Char])]
+    .mapConcat {
+      case (lastNoteStr :: _ :: Nil, noteStr :: directionStr :: Nil) =>
+        val direction = directionMap(directionStr)
+
+        val noteFactory = notesMap(_: Char)(tonic)(direction)
 
         val target = noteFactory(noteStr)
         val lastNote = noteFactory(lastNoteStr)
 
         (target, lastNote) match {
-          case (r: Rest, _) =>
-            r :: Nil
+          case (h @ Height(_, gap), lh @ Height(_, lastGap)) if Math.abs(gap - lastGap) == 4 =>
+            lh.toTonic.`3m`(direction) :: lh.toTonic.`4`(direction) :: lh.toTonic.`5j`(direction) :: h.toTonic.tonic(direction) :: Nil
 
-          case (q @ QuickStop, _) =>
-            q :: Nil
+          case (h @ Height(_, gap), Height(_, lastGap)) if Math.abs(gap - lastGap) > maxGap =>
+            fillUpGap(direction, lastNoteStr, noteStr) :+ h
 
-          case (s @ Sound(_, _, gap), ls @ Sound(_, _, lastGap)) if Math.abs(gap - lastGap) == 4 =>
-            ls.toTonic.`3m`(direction, Quadruple) :: ls.toTonic.`4`(direction, Quadruple) :: ls.toTonic.`5j`(direction, Quadruple) :: s.toTonic.tonic(direction, Quadruple) :: Nil
-
-          case (s @ Sound(_, _, gap), Sound(_, _, lastGap)) if Math.abs(gap - lastGap) > maxGap =>
-            fillUpGap(direction, lastNoteStr, noteStr) :+ s
-
-          case (s @ Sound(_, _, gap), _) =>
-            s :: Nil
+          case (h: Height, _) =>
+            h :: Nil
         }
 
-      case _ => tonic.tonic(Up, White) :: Nil
+      case _ => tonic.tonic(Up) :: Nil
     }
+    .map(_.toNote)
 
-  private def fillUpGap(direction: Direction, lastNoteStr: Char, targetNoteStr: Char, acc: List[Note] = List(QuickStop)): List[Note] = {
+  private def fillUpGap(direction: Direction, lastNoteStr: Char, targetNoteStr: Char, acc: List[Height] = List.empty): List[Height] = {
     val keys = notesMap.keys
     val lastIntervalIndex = keys.toIndexedSeq.indexOf(lastNoteStr)
     val targetIntervalIndex = keys.toIndexedSeq.indexOf(targetNoteStr)
@@ -56,38 +70,14 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
         else          lastIntervalIndex - Random.nextInt(math.abs(diff))
 
       val nextFillerInterval = notesMap.toSeq(nextGapFiller)
-      val nextFillerNote = nextFillerInterval._2(tonic)(direction, DDouble)
+      val nextFillerNote = nextFillerInterval._2(tonic)(direction)
 
-      fillUpGap(direction, nextFillerInterval._1, targetNoteStr, acc ++ (nextFillerNote :: QuickStop :: Nil))
+      fillUpGap(direction, nextFillerInterval._1, targetNoteStr, acc :+ nextFillerNote)
     }
     else {
       acc
     }
   }
-
-  private def prepare = Flow.fromGraph(GraphDSL.create() { implicit b ⇒
-    import GraphDSL.Implicits._
-
-    val in = b.add(Flow[MerkleTreeCreatedActivity])
-    val zip = b.add(Zip[List[Char], List[Char]]())
-
-    val drop0x = Flow[MerkleTreeCreatedActivity].map {
-      m =>
-        println(m)
-        m.merkleRoot.drop(2).toLowerCase
-    }
-    val duplicate = Flow[String].map(s => (s, s))
-    val dropFirst = Flow[String].map(_.drop(3))
-    val dropLast = Flow[String].map(_.dropRight(3))
-    val extractTriplets = Flow[String].mapConcat[String](_.sliding(3, 3).toList).map(_.toList)
-    val offset = b.add(Unzip[String, String]())
-
-    in ~> drop0x ~> duplicate ~> offset.in
-                                 offset.out0 ~> dropFirst ~> extractTriplets ~> zip.in1
-                                 offset.out1 ~> dropLast  ~> extractTriplets ~> zip.in0
-
-    FlowShape(in.in, zip.out)
-  })
 
   private val directionMap: Map[Char, Direction] = Map(
     '0' -> Down,
@@ -108,27 +98,8 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     'f' -> Up,
   )
 
-  private val rhythmMap: Map[Char, Rhythm] = Map(
-    '0' -> White,
-    '4' -> White,
-    '8' -> Black,
-    'c' -> Black,
-    '1' -> Black,
-    '5' -> Black,
-    '9' -> Black,
-    'd' -> Black,
-    '2' -> DDouble,
-    '6' -> DDouble,
-    'a' -> DDouble,
-    'e' -> DDouble,
-    '3' -> DDouble,
-    '7' -> DDouble,
-    'b' -> Quadruple,
-    'f' -> Quadruple,
-  )
-
-  private val notesMap: Map[Char, Tonic => (Direction, Rhythm) => Note] = Map(
-    '0' -> (n => (_, r) => n.rest(r)),
+  private val notesMap: Map[Char, Tonic => Direction => Height] = Map(
+    '0' -> (_.tonic),
 
     '1' -> octaveDown(_.tonic),
     '2' -> octaveDown(_.`2m`),
@@ -149,9 +120,9 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     'f' -> octaveUp(_.`7m`),
   )
 
-  private def octaveDown(gap: Tonic => (Direction, Rhythm) => Note)(n: Tonic) =
-    (d: Direction, r: Rhythm) => gap(n.octave(Down, r).toTonic)(d, r)
+  private def octaveDown(gap: Tonic => Direction => Height)(n: Tonic) =
+    (d: Direction) => gap(n.octave(Down).toTonic)(d)
 
-  private def octaveUp(gap: Tonic => (Direction, Rhythm) => Note)(n: Tonic) =
-    (d: Direction, r: Rhythm) => gap(n.octave(Up, r).toTonic)(d, r)
+  private def octaveUp(gap: Tonic => Direction => Height)(n: Tonic) =
+    (d: Direction) => gap(n.octave(Up).toTonic)(d)
 }

@@ -3,6 +3,11 @@ package music
 import io.circe.Encoder
 import io.circe.generic.semiauto._
 
+case class Height(frequency: Double, intervalGap: Int) {
+  val toNote: Rhythm => Note = Sound(frequency, _: Rhythm, intervalGap)
+  lazy val toTonic: Tonic = Tonic(frequency, intervalGap)
+}
+
 sealed trait Note {
   val rhythm: Rhythm
 
