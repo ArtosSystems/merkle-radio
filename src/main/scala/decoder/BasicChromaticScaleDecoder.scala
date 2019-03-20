@@ -5,7 +5,7 @@ import akka.stream.scaladsl.Flow
 import io.artos.activities.MerkleTreeCreatedActivity
 import music._
 
-class BasicChromaticScaleDecoder(tonic: Note) extends MerkleRootDecoder {
+class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
   override def decode: Flow[MerkleTreeCreatedActivity, Note, NotUsed] = Flow[MerkleTreeCreatedActivity]
     .map(_.merkleRoot)
@@ -67,7 +67,7 @@ class BasicChromaticScaleDecoder(tonic: Note) extends MerkleRootDecoder {
     'f' -> Quadruple,
   )
 
-  private val notesMap: Map[Char, Note => (Direction, Rhythm) => Note] = Map(
+  private val notesMap: Map[Char, Tonic => (Direction, Rhythm) => Note] = Map(
     '0' -> (n => n.octave),
     '1' -> (n => n.`2m`),
     '2' -> (n => n.`2M`),

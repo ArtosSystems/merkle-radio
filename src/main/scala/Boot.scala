@@ -20,7 +20,7 @@ object Boot extends App {
 
   val tempo = 100
 
-  val tonic = Note(440, Black)
+  val tonic = Tonic(440)
 
   private val root = MerkleTreeCreatedActivity(TraceData.newTrace("test"), "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", 2, 0)
 
