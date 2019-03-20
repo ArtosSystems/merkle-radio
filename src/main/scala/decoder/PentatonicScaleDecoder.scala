@@ -1,7 +1,8 @@
 package decoder
 
 import akka.NotUsed
-import akka.stream.scaladsl.Flow
+import akka.stream.FlowShape
+import akka.stream.scaladsl.{Flow, GraphDSL, Unzip, Zip}
 import io.artos.activities.MerkleTreeCreatedActivity
 import music._
 
@@ -9,13 +10,9 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
   // TODO: Define high-level patterns
   // TODO: Reduce the steps (add context)
-  override def decode: Flow[MerkleTreeCreatedActivity, Note, NotUsed] = Flow[MerkleTreeCreatedActivity]
-    .map(_.merkleRoot)
-    .map(_.drop(2))
-    .mapConcat[String](_.sliding(3, 3).toList)
-    .map(_.toList)
+  override def decode: Flow[MerkleTreeCreatedActivity, Note, NotUsed] = prepare
     .mapConcat {
-      case noteStr :: rhythmStr :: directionStr :: Nil =>
+      case (lastNoteStr :: lastRhythmStr :: lastDirectionStr :: Nil, noteStr :: rhythmStr :: directionStr :: Nil) =>
         val direction = directionMap(directionStr)
         val rhythm = rhythmMap(rhythmStr)
 
@@ -29,6 +26,25 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
       case _ => tonic.tonic(Up, White) :: Nil
     }
+
+  private def prepare = Flow.fromGraph(GraphDSL.create() { implicit b ⇒
+    import GraphDSL.Implicits._
+
+    val in = b.add(Flow[MerkleTreeCreatedActivity])
+    val zip = b.add(Zip[List[Char], List[Char]]())
+
+    val drop0x = Flow[MerkleTreeCreatedActivity].map(_.merkleRoot.drop(2))
+    val duplicate = Flow[String].map(s => (s, s))
+    val dropOne = Flow[String].map(_.drop(3))
+    val extractTriplets = Flow[String].mapConcat[String](_.sliding(3, 3).toList).map(_.toList)
+    val offset = b.add(Unzip[String, String]())
+
+    in ~> drop0x ~> duplicate ~> offset.in
+                                 offset.out0 ~> dropOne ~> extractTriplets ~> zip.in1
+                                 offset.out1 ~>            extractTriplets ~> zip.in0
+
+    FlowShape(in.in, zip.out)
+  })
 
   private val directionMap: Map[Char, Direction] = Map(
     '0' -> Down,
