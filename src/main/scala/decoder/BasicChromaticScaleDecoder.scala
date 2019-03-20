@@ -19,10 +19,6 @@ class BasicChromaticScaleDecoder(tonic: Note) extends MerkleRootDecoder {
 
         val nextNote = notesMap(noteStr)(tonic)(direction, rhythm)
 
-        println(s"Generated: $nextNote")
-        println(direction)
-        println(rhythm)
-
         rhythm match {
           case DDouble   => nextNote :: nextNote :: Nil
           case Quadruple => nextNote :: nextNote :: nextNote :: nextNote :: Nil

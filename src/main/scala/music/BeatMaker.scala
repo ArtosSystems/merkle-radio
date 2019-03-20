@@ -5,11 +5,15 @@ import com.jsyn.unitgen.{LineOut, SawtoothOscillatorBL}
 
 class BeatMaker(synthesizer: Synthesizer, osc: SawtoothOscillatorBL, lineOut: LineOut) {
   def play(tempo: Int)(note: Note): Unit = {
-    println(note.frequency)
+    osc.start()
+    lineOut.start()
+
     osc.frequency.set(note.frequency)
     osc.amplitude.set(0.8)
 
     synthesizer.sleepFor(note.duration(tempo))
+    osc.stop()
+    lineOut.stop()
   }
 
   def stop(): Unit = {
@@ -36,7 +40,6 @@ object BeatMaker {
     osc.output.connect(0, lineOut.input, 1)
 
     // Start the unit generators so they make sound.
-    osc.start()
     lineOut.start()
     synthesizer.start()
 
