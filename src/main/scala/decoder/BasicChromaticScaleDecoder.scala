@@ -12,7 +12,7 @@ class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     .mapConcat {
       case noteStr :: rhythmStr :: directionStr :: Nil =>
         val direction = directionMap(directionStr)
-        val rhythm = rythmeMap(rhythmStr)
+        val rhythm = rhythmMap(rhythmStr)
 
         val nextNote = notesMap(noteStr)(tonic)(direction)
 
@@ -45,7 +45,7 @@ class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     'f' -> Up,
   )
 
-  private val rythmeMap: Map[Char, Rhythm] = Map(
+  private val rhythmMap: Map[Char, Rhythm] = Map(
     '0' -> White,
     '4' -> White,
     '8' -> White,
