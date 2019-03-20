@@ -5,9 +5,6 @@ import com.jsyn.unitgen.{LineOut, SawtoothOscillatorBL}
 
 class BeatMaker(synthesizer: Synthesizer, osc: SawtoothOscillatorBL, lineOut: LineOut) {
   def play(tempo: Int)(note: Note): Unit = note match {
-    case _: Rest =>
-      synthesizer.sleepFor(note.duration(tempo))
-
     case Sound(frequency, _) =>
       osc.start()
       lineOut.start()
@@ -18,6 +15,9 @@ class BeatMaker(synthesizer: Synthesizer, osc: SawtoothOscillatorBL, lineOut: Li
       synthesizer.sleepFor(note.duration(tempo))
       osc.stop()
       lineOut.stop()
+
+    case _ =>
+      synthesizer.sleepFor(note.duration(tempo))
   }
 
   def stop(): Unit = {

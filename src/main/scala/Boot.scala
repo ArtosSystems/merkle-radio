@@ -1,9 +1,8 @@
-import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
-import decoder.BasicChromaticScaleDecoder
+import decoder.PentatonicScaleDecoder
 import io.artos.activities.{MerkleTreeCreatedActivity, TraceData}
 import music._
 import stream.MerkleRootSource
@@ -18,14 +17,14 @@ object Boot extends App {
 
   val beatMaker = BeatMaker()
 
-  val tempo = 100
+  val tempo = 170
 
   val tonic = Tonic(440)
 
   private val root = MerkleTreeCreatedActivity(TraceData.newTrace("test"), "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", 2, 0)
 
   val source = Source(List(root))
-  val flow = new BasicChromaticScaleDecoder(tonic).decode
+  val flow = new PentatonicScaleDecoder(tonic).decode
   val sink = Sink.foreach[Note] { note =>
     println("Playing: " + note)
     beatMaker.play(tempo)(note)

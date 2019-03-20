@@ -14,11 +14,17 @@ sealed trait Note {
       case Black => d
       case DDouble => d / 2
       case Quadruple => d / 4
+      case InterNote => d / 8
     }
   }
 }
 case class Rest(rhythm: Rhythm) extends Note
-case class Sound(frequency: Double, rhythm: Rhythm) extends Note
+case object QuickStop extends Note {
+  override val rhythm: Rhythm = InterNote
+}
+case class Sound(frequency: Double, rhythm: Rhythm) extends Note {
+  lazy val toTonic: Tonic = Tonic(frequency)
+}
 
 object Note {
   implicit val noteEncoder: Encoder[Note] = deriveEncoder
@@ -34,6 +40,7 @@ case object White extends Rhythm
 case object Black extends Rhythm
 case object DDouble extends Rhythm
 case object Quadruple extends Rhythm
+case object InterNote extends Rhythm
 
 object Rhythm {
   implicit val encoder: Encoder[Rhythm] = Encoder[String].contramap({
