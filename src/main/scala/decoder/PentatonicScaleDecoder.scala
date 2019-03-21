@@ -5,8 +5,6 @@ import akka.stream.FlowShape
 import akka.stream.scaladsl.{Flow, GraphDSL, Unzip, Zip}
 import music._
 
-import scala.util.Random
-
 class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
   private val maxGap = 5 // more than  a 4th of difference
@@ -40,9 +38,7 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
         val noteFactory = notesMap(_: Char)(tonic)(direction)
 
         val target = noteFactory(noteStr)
-        println("target: " + target)
         val lastNote = noteFactory(lastNoteStr)
-        println("lastNote: " + lastNote)
 
         (target, lastNote) match {
           case (h @ Height(_, gap), lh @ Height(_, lastGap)) if Math.abs(gap - lastGap) == 4 =>
@@ -60,21 +56,12 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     .map(_.toNote)
 
   private def fillUpGap(direction: Direction, lastNoteStr: Char, targetNoteStr: Char): List[Height] = {
-    println("=============================")
-    println("lastNoteStr: " + lastNoteStr)
-    println("targetNoteStr: " + targetNoteStr)
     val lastNoteIndex = keys.indexOf(lastNoteStr)
     val targetNoteIndex = keys.indexOf(targetNoteStr)
 
-    println("lastNoteIndex: " + lastNoteIndex)
-    println("targetNoteIndex: " + targetNoteIndex)
-
     val notesIndexed = notesMap.toIndexedSeq.sortBy(_._1)
     val ints = List.range(lastNoteIndex, targetNoteIndex)
-    println("ints: " + ints)
     val fillers = ints.map(notesIndexed).map(_._2(tonic)(direction))
-    println("fillers: " + fillers)
-    println("=============================")
     fillers
   }
 

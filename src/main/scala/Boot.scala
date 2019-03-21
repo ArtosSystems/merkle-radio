@@ -31,7 +31,7 @@ object Boot extends App {
     val rhythmFlow = RhythmMaker.produceRhythm
 
     val drop0x = Flow[MerkleTreeCreatedActivity].map(_.merkleRoot.drop(2))
-    val buffer = Flow[String].buffer(1, OverflowStrategy.dropBuffer)
+    val buffer = Flow[String].buffer(1, OverflowStrategy.dropTail)
     val toChar = Flow[String].mapConcat(_.toList)
     val applyRhythm = Flow[(Rhythm, Rhythm => Note)].map { case (r, n) => n(r) }
     val addStops = builder.add(Flow[Note].mapConcat(_ :: QuickStop :: Nil))
@@ -48,7 +48,7 @@ object Boot extends App {
   })
 
   val player = Sink.foreach[Note] { note =>
-//    println("Playing: " + note)
+    println("Playing: " + note)
     beatMaker.play(tempo)(note)
   }
 
