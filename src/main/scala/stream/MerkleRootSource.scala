@@ -3,8 +3,10 @@ package stream
 import akka.stream.scaladsl.Source
 import io.artos.activities.{MerkleTreeCreatedActivity, TraceData}
 
+import scala.util.Random
+
 class MerkleRootSource {
-  val source = Source(List(
+  val source = Source(Random.shuffle(List(
     MerkleTreeCreatedActivity(TraceData.newTrace("test"), "0x4e3b8f1522fb72a9394f55b6eca9e170f5123ea9d33bd71a531e6349dcd39948", 2, 0),
     MerkleTreeCreatedActivity(TraceData.newTrace("test"), "0xf70aa4ea63a949796a604bba0f7ceb0031c320afba8cb1f3d4741657db2299e7", 2, 0),
     MerkleTreeCreatedActivity(TraceData.newTrace("test"), "0x66aab022faea79d2bb35a1676d274ebb075457d0852db0b801cb85b83a16507a", 2, 0),
@@ -108,5 +110,5 @@ class MerkleRootSource {
     MerkleTreeCreatedActivity(TraceData.newTrace("test"), "0x2534082818c97d91d3d526f176c83cb25362af41a115c51a399d72b73ede869f", 2, 0),
     MerkleTreeCreatedActivity(TraceData.newTrace("test"), "0x8020b22807efd264ea78ea513da909b8c4783b09f3d86fd519aebcd6ce752c6b", 2, 0),
     MerkleTreeCreatedActivity(TraceData.newTrace("test"), "0x6ced81fd66ee406f2a3526c9df4549a46ce59a9efbc9efe8624602272594fbf5", 2, 0),
-  ))
+  )))
 }
