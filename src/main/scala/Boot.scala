@@ -1,10 +1,12 @@
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import decoder.PentatonicScaleDecoder
 import io.artos.activities.{MerkleTreeCreatedActivity, TraceData}
-import websocket.{ServiceHandlers, WsServer}
+import websocket.WsServer
+//import websocket.{ServiceHandlers, WsServer}
 import music._
 import stream.MerkleRootSource
 
@@ -26,7 +28,7 @@ object Boot extends App {
   val source = Source(List(root))
   val flow = new PentatonicScaleDecoder(tonic).decode
   val sink = Sink.foreach[Note] { note =>
-    println("Playing: " + note)
+    //println("Playing: " + note)
     beatMaker.play(tempo)(note)
   }
 
@@ -34,7 +36,11 @@ object Boot extends App {
 
   ///// WebSocket \\\\\ TODO refactoring
 
-  val wsServer = WsServer(new ServiceHandlers(source via flow))
+//  val so: Source[MerkleTreeCreatedActivity, NotUsed] = (new MerkleRootSource).source
+//
+//  val fff: Source[Note, NotUsed] = so via flow
+
+  val wsServer = WsServer(beatMaker)
 
   val serverSource = Http().bind(interface = "localhost", port = 8080)
 
@@ -42,6 +48,7 @@ object Boot extends App {
     serverSource.to(Sink.foreach { connection =>
       println("Accepted new connection from " + connection.remoteAddress)
 
-      connection handleWithSyncHandler wsServer.requestHandler
+      //connection handleWithSyncHandler wsServer.requestHandler
+      connection handleWithAsyncHandler wsServer.requestHandlerAsync
     }).run()
 }

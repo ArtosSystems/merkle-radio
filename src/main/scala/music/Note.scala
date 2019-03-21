@@ -48,5 +48,6 @@ object Rhythm {
     case _: Black.type => "black"
     case _: DDouble.type => "double"
     case _: Quadruple.type => "quadruple"
+    case _: InterNote.type => "internote"
   })
 }
