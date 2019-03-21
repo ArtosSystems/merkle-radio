@@ -64,7 +64,14 @@ lazy val root = (project in file("."))
       "io.artos"                      %% "activity-model"               % "0.18.1",
       "io.aventus"                    %% "aventus4s"                    % "0.5.1-0.12",
       "com.typesafe.akka"             %% "akka-http"                    % "10.1.7"
-    )
+    ),
+    mainClass in assembly := Some("Boot"),
+    assemblyJarName in assembly := "merkle-radio.jar",
+    assemblyMergeStrategy in assembly := {
+      case n if n.startsWith("reference.conf") => MergeStrategy.concat
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case x => MergeStrategy.first
+    },
   )
 
 lazy val artefactVersion = taskKey[Unit]("Prints the version")
