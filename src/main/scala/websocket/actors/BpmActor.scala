@@ -2,21 +2,21 @@ package websocket.actors
 
 import akka.actor.{Actor, Props}
 import websocket.actors.BpmActor._
-import websocket.actors.MasterActor.GetBpm
-
 
 class BpmActor extends Actor {
   println("creation! " + context.self.path)
 
-  private var currentBpm = 10
+  private val currentBpm = 100
 
-  override def receive: Receive = {
+  override def receive: Receive = onMessage(currentBpm)
 
-    case ChangeBpm(beats)    =>
+  private def onMessage(currentBpm: Int): Receive = {
+
+    case ChangeBpm(beats) =>
       println(s"$currentBpm -> $beats")
-      currentBpm = beats
+      context.become(onMessage(beats))
 
-    case GetBpm              =>
+    case GetBpm =>
       println(currentBpm)
       sender() ! Bpm(currentBpm)
   }
@@ -25,6 +25,7 @@ class BpmActor extends Actor {
 object BpmActor{
   case class ChangeBpm(bpm: Int)
   case class Bpm(value: Int)
+  case object GetBpm
 
   def props = Props(new BpmActor)
 }

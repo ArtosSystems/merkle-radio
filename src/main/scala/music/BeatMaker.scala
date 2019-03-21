@@ -4,31 +4,37 @@ import com.jsyn.{JSyn, Synthesizer}
 import com.jsyn.unitgen.{LineOut, SawtoothOscillatorBL}
 
 class BeatMaker(synthesizer: Synthesizer, osc1: SawtoothOscillatorBL, osc2: SawtoothOscillatorBL, osc3: SawtoothOscillatorBL, lineOut: LineOut) {
-  def play(tempo: Int)(note: Note): Unit = note match {
-    case Sound(frequency, _, _) =>
-      osc1.start()
-      osc2.start()
-      osc3.start()
-      lineOut.start()
+  def play(tempo: Int)(note: Note): String = {
+    val duration = note.duration(tempo)
 
-      osc1.frequency.set(frequency)
-      osc1.amplitude.set(0.8)
+    note match {
+      case Sound(frequency, _, _) =>
+        osc1.start()
+        osc2.start()
+        osc3.start()
+        lineOut.start()
 
-      osc2.frequency.set(frequency * 2)
-      osc2.amplitude.set(0.6)
+        osc1.frequency.set(frequency)
+        osc1.amplitude.set(0.8)
 
-      osc3.frequency.set(frequency * 3/2)
-      osc3.amplitude.set(0.5)
+        osc2.frequency.set(frequency * 2)
+        osc2.amplitude.set(0.6)
 
-      synthesizer.sleepFor(note.duration(tempo))
+        osc3.frequency.set(frequency * 3/2)
+        osc3.amplitude.set(0.5)
 
-      osc1.stop()
-      osc2.stop()
-      osc3.stop()
-      lineOut.stop()
+        synthesizer.sleepFor(duration)
 
-    case _ =>
-      synthesizer.sleepFor(note.duration(tempo))
+        osc1.stop()
+        osc2.stop()
+        osc3.stop()
+        lineOut.stop()
+        s"""{"frequency": $frequency, "duration": $duration}"""
+
+      case _ =>
+        synthesizer.sleepFor(note.duration(tempo))
+        s"""{"duration": $duration}"""
+    }
   }
 
   def stop(): Unit = {

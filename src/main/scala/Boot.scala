@@ -1,56 +1,62 @@
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Sink, Source, Zip}
-import akka.stream.{ActorMaterializer, OverflowStrategy, SourceShape}
-import decoder.{AdvancedFillerScaleDecoder, RhythmMaker}
-import io.artos.activities.MerkleTreeCreatedActivity
+import akka.actor.{ActorSystem, Props}
+import akka.http.scaladsl.model.HttpMethods.{CONNECT, GET}
+import akka.http.scaladsl.model.ws.Message
+import akka.http.scaladsl.server.Directives.{complete, handleWebSocketMessages, onComplete, path}
+import akka.http.scaladsl.server.Route
+import akka.pattern.ask
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Flow
+import com.typesafe.config.ConfigFactory
+import com.typesafe.scalalogging.StrictLogging
+import io.aventus.service.akka.auth.AppAuthentication.AllowAllAuthentication
+import io.aventus.service.akka.services.APIService
+import io.aventus.service.akka.utils.AllowAllSchemeFilter
+import io.aventus.service.akka.{AllowCORS, ServiceDefinition}
 import music._
-import stream.MerkleRootSource
-import websocket.WsServer
+import websocket.actors.ClientHandlerActor
+import websocket.actors.ClientHandlerActor.GetWebsocketFlow
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
-object Boot extends App {
-  implicit val system: ActorSystem = ActorSystem()
+object Boot extends {
+  implicit val config: AppConfig = AppConfig()
+  implicit val system: ActorSystem = ActorSystem(config.actorSystemName, ConfigFactory.load())
   implicit val mat: ActorMaterializer = ActorMaterializer()
-  implicit val ec = system.dispatcher
+} with APIService[Unit, AppConfig]()
+  with AllowCORS
+  with AllowAllAuthentication
+  with AllowAllSchemeFilter
+  with StrictLogging
+  with App {
 
-  val beatMaker = BeatMaker()
+  def tonic = Tonic(440)
 
-  val tonic = Tonic(440)
+  def beatMaker = BeatMaker()
+  def source = new MusicSource(tonic).source
 
-  val source: Source[Note, NotUsed] = Source.fromGraph(GraphDSL.create() { implicit builder =>
-    import akka.stream.scaladsl.GraphDSL.Implicits._
+  override protected def initServices(implicit ec: ExecutionContext): Future[ServiceDefinition[Unit]] = Future {
+    val handler = system.actorOf(ClientHandlerActor.props(source, beatMaker))
 
-    val in = (new MerkleRootSource).source
+    def routes: Route = {
+      path("ws") {
+        val futureFlow =
+          (handler ? GetWebsocketFlow) (3.seconds).mapTo[Flow[Message, Message, _]]
 
-    val notesFlow = new AdvancedFillerScaleDecoder(tonic).decode
-    val rhythmFlow = RhythmMaker.produceRhythm
+        onComplete(futureFlow) {
+          case Success(flow) => handleWebSocketMessages(flow)
+          case Failure(err) => complete(err.toString)
+        }
+      }
+    }
 
-    val drop0x = Flow[MerkleTreeCreatedActivity].map(_.merkleRoot.drop(2))
-    val buffer = Flow[String].buffer(1, OverflowStrategy.dropTail)
-    val toChar = Flow[String].mapConcat(_.toList)
-    val applyRhythm = Flow[(Rhythm, Rhythm => Note)].map { case (r, n) => n(r) }
-    val addStops = builder.add(Flow[Note].mapConcat(_ :: QuickStop :: Nil))
+    val serviceDefinition = ServiceDefinition(
+      (_: Unit) => routes,
+      Set()
+    )
+    serviceDefinition
+  }
 
-    val bcast = builder.add(Broadcast[String](2))
-    val zip = builder.add(Zip[Rhythm, Rhythm => Note]())
-
-    in ~> drop0x ~> bcast.in
-                    bcast.out(0) ~> notesFlow                      ~> zip.in1
-                    bcast.out(1) ~> buffer ~> toChar ~> rhythmFlow ~> zip.in0
-                                                                      zip.out ~> applyRhythm ~> addStops
-
-    SourceShape(addStops.out)
-  })
-
-  val serverSource = Http().bind(interface = "localhost", port = 8080)
-
-  val bindingFuture: Future[Http.ServerBinding] =
-    serverSource.to(Sink.foreach { connection =>
-      println("Accepted new connection from " + connection.remoteAddress)
-
-      connection handleWithAsyncHandler WsServer(beatMaker, source).requestHandlerAsync
-    }).run()
+  override val allowedMethods = scala.collection.immutable.Seq(GET, CONNECT)
 }

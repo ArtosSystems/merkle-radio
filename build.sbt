@@ -63,6 +63,8 @@ lazy val root = (project in file("."))
       "com.jsyn"                      %  "jsyn"                         % "20170815",
       "io.artos"                      %% "activity-model"               % "0.18.1",
       "io.aventus"                    %% "aventus4s"                    % "0.5.1-0.12",
+      "io.aventus"                    %% "akka-service-utils"           % "1.16.3",
+      "com.github.pureconfig"         %% "pureconfig"                   % "0.8.0",
       "com.typesafe.akka"             %% "akka-http"                    % "10.1.7"
     ),
     mainClass in assembly := Some("Boot"),
