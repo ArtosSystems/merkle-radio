@@ -17,11 +17,9 @@ class MusicParamsActor extends Actor {
       context.become(onMessage(currentBpm, tonic))
 
     case GetBpm =>
-      println(s"GetBpm: $currentBpm")
       sender() ! BpmValue(currentBpm)
 
     case GetTonic =>
-      println(s"GetTonic: $currentTonic")
       sender() ! TonicValue(currentTonic)
   }
 }

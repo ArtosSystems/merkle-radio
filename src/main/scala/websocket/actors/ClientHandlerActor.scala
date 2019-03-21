@@ -33,7 +33,12 @@ class ClientHandlerActor(beatMaker: BeatMaker) extends Actor with StrictLogging 
     .run()
 
   musicSource
-    .mapAsync(1)(n => (musicParamsActor ? GetBpm).map{ case BpmValue(bpm) => beatMaker.play(bpm)(n) })
+    .mapAsync(1) { note =>
+      println(s"Playing $note")
+
+      (musicParamsActor ? GetBpm)
+        .map { case BpmValue(bpm) => beatMaker.play(bpm)(note) }
+    }
     .runForeach(down.!)
     .recover {
       case e => println(s"Error: ${e.getMessage}")
