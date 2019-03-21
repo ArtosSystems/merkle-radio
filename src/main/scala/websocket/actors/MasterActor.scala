@@ -2,13 +2,12 @@ package websocket.actors
 
 import akka.NotUsed
 import akka.actor.{Actor, ActorContext, ActorRef, Props}
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import music.{BeatMaker, Note}
-import websocket.actors.BpmActor.ChangeBpm
+import music.Note
+import websocket.actors.BpmActor.{Bpm, ChangeBpm}
 import websocket.actors.MasterActor._
 
-class MasterActor(beatMaker: BeatMaker, notes: Source[Note, NotUsed])(implicit mat: Materializer) extends Actor {
+class MasterActor extends Actor {
 
   private val keepAliveActor = createKeepAliveActor
 
@@ -26,11 +25,10 @@ class MasterActor(beatMaker: BeatMaker, notes: Source[Note, NotUsed])(implicit m
 
 
 object MasterActor {
-  case object Start
   case object PingServer
   case object GetBpm
   case class Notes(source: Source[Note, NotUsed])
-  def props(beatMaker: BeatMaker, activities: Source[Note, NotUsed])(implicit mat: Materializer) = Props(new MasterActor(beatMaker, activities))
+  def props = Props(new MasterActor())
   def createBpmActor()(implicit context: ActorContext): ActorRef = context.actorOf(BpmActor.props)
   def createKeepAliveActor(implicit context: ActorContext): ActorRef = context.actorOf(KeepAliveActor.props)
 }

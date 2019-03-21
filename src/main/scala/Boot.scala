@@ -1,16 +1,13 @@
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
-import decoder.PentatonicScaleDecoder
-import io.artos.activities.{MerkleTreeCreatedActivity, TraceData}
-import websocket.WsServer
-//import websocket.{ServiceHandlers, WsServer}
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Sink, Source, Zip}
 import akka.stream.{ActorMaterializer, OverflowStrategy, SourceShape}
 import decoder.{AdvancedFillerScaleDecoder, RhythmMaker}
+import io.artos.activities.MerkleTreeCreatedActivity
 import music._
 import stream.MerkleRootSource
+import websocket.WsServer
 
 import scala.concurrent.Future
 
@@ -20,8 +17,6 @@ object Boot extends App {
   implicit val ec = system.dispatcher
 
   val beatMaker = BeatMaker()
-
-  val tempo = 200
 
   val tonic = Tonic(440)
 
@@ -50,30 +45,12 @@ object Boot extends App {
     SourceShape(addStops.out)
   })
 
-  val player = Sink.foreach[Note] { note =>
-    println("Playing: " + note)
-    beatMaker.play(tempo)(note)
-  }
-
-  source.runWith(player).recover {
-    case e => println("Error: " + e)
-  }
-
-  ///// WebSocket \\\\\ TODO refactoring
-
-//  val so: Source[MerkleTreeCreatedActivity, NotUsed] = (new MerkleRootSource).source
-//
-//  val fff: Source[Note, NotUsed] = so via flow
-
-  val wsServer = WsServer(beatMaker)
-
   val serverSource = Http().bind(interface = "localhost", port = 8080)
 
   val bindingFuture: Future[Http.ServerBinding] =
     serverSource.to(Sink.foreach { connection =>
       println("Accepted new connection from " + connection.remoteAddress)
 
-      //connection handleWithSyncHandler wsServer.requestHandler
-      connection handleWithAsyncHandler wsServer.requestHandlerAsync
+      connection handleWithAsyncHandler WsServer(beatMaker, source).requestHandlerAsync
     }).run()
 }

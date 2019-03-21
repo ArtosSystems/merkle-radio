@@ -5,45 +5,32 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model.ws._
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
+import akka.pattern.ask
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import music.{BeatMaker, Note, Tonic}
+import akka.util.Timeout
+import io.circe.syntax._
+import music.{BeatMaker, Note}
+import websocket.WsServer._
+import websocket.actors.BpmActor.{Bpm, ChangeBpm}
 import websocket.actors.MasterActor
-import websocket.actors.MasterActor.{GetBpm, PingServer, Start}
+import websocket.actors.MasterActor.{GetBpm, PingServer}
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
-import scala.concurrent.duration._
-import akka.http.scaladsl.unmarshalling.Unmarshal
-import decoder.PentatonicScaleDecoder
-import stream.MerkleRootSource
-import WsServer._
-import akka.util.Timeout
-import websocket.actors.BpmActor.{Bpm, ChangeBpm}
-import akka.pattern.ask
 
-class WsServer private(beatMaker: BeatMaker)(implicit system: ActorSystem, mat: Materializer, ec: ExecutionContext) {
+class WsServer private(beatMaker: BeatMaker, noteSource: Source[Note, NotUsed])(implicit system: ActorSystem, mat: Materializer, ec: ExecutionContext) {
 
-
-  implicit val askTimeout: Timeout = Timeout(30.seconds)
-
-  private val tonic = Tonic(440)
-
-  private val noteSource = (new MerkleRootSource).source via new PentatonicScaleDecoder(tonic).decode
-
-  private val masterActor = system.actorOf(MasterActor.props(beatMaker, noteSource))
+  private val masterActor = system.actorOf(MasterActor.props)
 
   system.scheduler.schedule(1.minute, 1.minute)(masterActor ! PingServer)
 
-  masterActor ! Start
-
   val requestHandlerAsync: HttpRequest => Future[HttpResponse] = {
 
-    case req @ HttpRequest(GET, Uri.Path("/note-stream"), _, _, _)  => Future {
-      handleWsRequest(req, noteStream(noteSource, beatMaker, masterActor))
-    }
+    case req @ HttpRequest(GET, Uri.Path("/note-stream"), _, _, _)  => Future{ handleWsRequest(req, noteStream(noteSource, beatMaker, masterActor)) }
 
-    case req @ HttpRequest(GET, Uri.Path("/change-bpm"), _, _, _)  => Future{ handleWsRequest(req, changeBpm(masterActor)) }
+    case req @ HttpRequest(GET, Uri.Path("/change-bpm"), _, _, _)   => Future{ handleWsRequest(req, changeBpm(masterActor)) }
 
     case r: HttpRequest => Future{
       r.discardEntityBytes() // important to drain incoming HTTP Entity stream
@@ -62,26 +49,19 @@ class WsServer private(beatMaker: BeatMaker)(implicit system: ActorSystem, mat: 
 
 
 object WsServer{
-  import akka.NotUsed
-  import akka.http.scaladsl.model.ws._
-  import akka.stream.Materializer
-  import akka.stream.scaladsl.{Flow, Sink, Source}
-  import io.circe.syntax._
-  import music.Note
 
+  implicit val askTimeout: Timeout = Timeout(30.seconds)
 
-  def apply(beatMaker: BeatMaker)
-           (implicit system: ActorSystem, mat: Materializer, ec: ExecutionContext) = new WsServer(beatMaker)
+  def apply(beatMaker: BeatMaker, noteSource: Source[Note, NotUsed])
+           (implicit system: ActorSystem, mat: Materializer, ec: ExecutionContext) = new WsServer(beatMaker, noteSource)
 
 
   def noteStream(noteSource: Source[Note, NotUsed], beatMaker: BeatMaker, masterActor: ActorRef)(implicit mat: Materializer, ec: ExecutionContext): Flow[Message, TextMessage, NotUsed] = {
 
-    implicit val askTimeout: Timeout = Timeout(30.seconds)
-
     def playingFlow(beatMaker: BeatMaker): Flow[Note, Note, NotUsed] = Flow[Note]
       .mapAsync(1){ n =>
         (masterActor ? GetBpm)
-          .map { case Bpm(value) => {println(value); value} }
+          .map { case Bpm(value) => println("GOT BPM: " + value); value }
           .map(bpm => (n, bpm))
       }
       .map { case (note, beats) =>
@@ -108,15 +88,12 @@ object WsServer{
 
   def changeBpm(masterActor: ActorRef)(implicit mat: Materializer, ec: ExecutionContext): Flow[Message, TextMessage, NotUsed] = {
 
-    implicit val askTimeout: Timeout = Timeout(30.seconds)
-
     Flow[Message]
       .mapAsync(1) {
         case tm : TextMessage   =>
-
           Future{masterActor ! ChangeBpm(tm.getStrictText.toInt)}
             .flatMap{_ =>
-              (masterActor ? GetBpm).map{ case Bpm(value) => TextMessage(s"BPM changed to ${value}")  }
+              (masterActor ? GetBpm).map{ case Bpm(value) => TextMessage(s"BPM changed to $value")  }
             }
           //tm :: Nil
 
