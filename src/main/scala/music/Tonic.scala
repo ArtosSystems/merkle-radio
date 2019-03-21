@@ -26,7 +26,7 @@ case class Tonic(frequency: Double, totalGaps: Int = 0) {
 
     case Down => Height(
       frequency = frequency * Math.pow(intervalGap, -interval.toDouble),
-      intervalGap = -interval + totalGaps
+      intervalGap = -interval - totalGaps
     )
   }
 }

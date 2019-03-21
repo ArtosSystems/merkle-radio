@@ -48,7 +48,7 @@ object Boot extends App {
   })
 
   val player = Sink.foreach[Note] { note =>
-    println("Playing: " + note)
+//    println("Playing: " + note)
     beatMaker.play(tempo)(note)
   }
 

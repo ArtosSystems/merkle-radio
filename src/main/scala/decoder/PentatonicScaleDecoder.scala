@@ -1,7 +1,7 @@
 package decoder
 
 import akka.NotUsed
-import akka.stream.{FlowShape, OverflowStrategy}
+import akka.stream.FlowShape
 import akka.stream.scaladsl.{Flow, GraphDSL, Unzip, Zip}
 import music._
 
@@ -9,7 +9,7 @@ import scala.util.Random
 
 class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
-  private val maxGap = 7 // more than  a 5th of difference
+  private val maxGap = 5 // more than  a 4th of difference
 
   override def decode: Flow[String, Rhythm => Note, NotUsed] = Flow.fromGraph(GraphDSL.create() { implicit b =>
     import GraphDSL.Implicits._
@@ -40,7 +40,9 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
         val noteFactory = notesMap(_: Char)(tonic)(direction)
 
         val target = noteFactory(noteStr)
+        println("target: " + target)
         val lastNote = noteFactory(lastNoteStr)
+        println("lastNote: " + lastNote)
 
         (target, lastNote) match {
           case (h @ Height(_, gap), lh @ Height(_, lastGap)) if Math.abs(gap - lastGap) == 4 =>
@@ -57,25 +59,23 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     }
     .map(_.toNote)
 
-  private def fillUpGap(direction: Direction, lastNoteStr: Char, targetNoteStr: Char, acc: List[Height] = List.empty): List[Height] = {
-    val keys = notesMap.keys
-    val lastIntervalIndex = keys.toIndexedSeq.indexOf(lastNoteStr)
-    val targetIntervalIndex = keys.toIndexedSeq.indexOf(targetNoteStr)
+  private def fillUpGap(direction: Direction, lastNoteStr: Char, targetNoteStr: Char): List[Height] = {
+    println("=============================")
+    println("lastNoteStr: " + lastNoteStr)
+    println("targetNoteStr: " + targetNoteStr)
+    val lastNoteIndex = keys.indexOf(lastNoteStr)
+    val targetNoteIndex = keys.indexOf(targetNoteStr)
 
-    val diff = targetIntervalIndex - lastIntervalIndex
-    if (math.abs(diff) > 3) {
-      val nextGapFiller =
-        if (diff > 0) lastIntervalIndex + Random.nextInt(math.abs(diff))
-        else          lastIntervalIndex - Random.nextInt(math.abs(diff))
+    println("lastNoteIndex: " + lastNoteIndex)
+    println("targetNoteIndex: " + targetNoteIndex)
 
-      val nextFillerInterval = notesMap.toSeq(nextGapFiller)
-      val nextFillerNote = nextFillerInterval._2(tonic)(direction)
-
-      fillUpGap(direction, nextFillerInterval._1, targetNoteStr, acc :+ nextFillerNote)
-    }
-    else {
-      acc
-    }
+    val notesIndexed = notesMap.toIndexedSeq.sortBy(_._1)
+    val ints = List.range(lastNoteIndex, targetNoteIndex)
+    println("ints: " + ints)
+    val fillers = ints.map(notesIndexed).map(_._2(tonic)(direction))
+    println("fillers: " + fillers)
+    println("=============================")
+    fillers
   }
 
   private val directionMap: Map[Char, Direction] = Map(
@@ -118,6 +118,8 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     'e' -> octaveUp(_.`5j`),
     'f' -> octaveUp(_.`7m`),
   )
+
+  private val keys = notesMap.keys.toIndexedSeq.sorted
 
   private def octaveDown(gap: Tonic => Direction => Height)(n: Tonic) =
     (d: Direction) => gap(n.octave(Down).toTonic)(d)
