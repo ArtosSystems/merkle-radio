@@ -1,9 +1,8 @@
 package decoder
 
 import akka.NotUsed
-import akka.stream.FlowShape
+import akka.stream.{FlowShape, OverflowStrategy}
 import akka.stream.scaladsl.{Flow, GraphDSL, Unzip, Zip}
-import io.artos.activities.MerkleTreeCreatedActivity
 import music._
 
 import scala.util.Random

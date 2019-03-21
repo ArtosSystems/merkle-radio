@@ -2,7 +2,7 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Sink, Source, Zip}
-import akka.stream.{ActorMaterializer, SourceShape}
+import akka.stream.{ActorMaterializer, OverflowStrategy, SourceShape}
 import decoder.{PentatonicScaleDecoder, RhythmMaker}
 import io.artos.activities.MerkleTreeCreatedActivity
 import music._
@@ -18,7 +18,7 @@ object Boot extends App {
 
   val beatMaker = BeatMaker()
 
-  val tempo = 100
+  val tempo = 200
 
   val tonic = Tonic(440)
 
@@ -31,6 +31,7 @@ object Boot extends App {
     val rhythmFlow = RhythmMaker.produceRhythm
 
     val drop0x = Flow[MerkleTreeCreatedActivity].map(_.merkleRoot.drop(2))
+    val buffer = Flow[String].buffer(1, OverflowStrategy.dropBuffer)
     val toChar = Flow[String].mapConcat(_.toList)
     val applyRhythm = Flow[(Rhythm, Rhythm => Note)].map { case (r, n) => n(r) }
     val addStops = builder.add(Flow[Note].mapConcat(_ :: QuickStop :: Nil))
@@ -39,9 +40,9 @@ object Boot extends App {
     val zip = builder.add(Zip[Rhythm, Rhythm => Note]())
 
     in ~> drop0x ~> bcast.in
-                    bcast.out(0) ~> notesFlow            ~> zip.in1
-                    bcast.out(1) ~> toChar ~> rhythmFlow ~> zip.in0
-                                                            zip.out ~> applyRhythm ~> addStops
+                    bcast.out(0) ~> notesFlow                      ~> zip.in1
+                    bcast.out(1) ~> buffer ~> toChar ~> rhythmFlow ~> zip.in0
+                                                                      zip.out ~> applyRhythm ~> addStops
 
     SourceShape(addStops.out)
   })
