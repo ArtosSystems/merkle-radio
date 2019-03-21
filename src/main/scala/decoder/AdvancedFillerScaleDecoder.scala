@@ -1,11 +1,17 @@
 package decoder
 
 import akka.NotUsed
+import akka.actor.ActorRef
+import akka.pattern.ask
 import akka.stream.FlowShape
 import akka.stream.scaladsl.{Flow, GraphDSL, Unzip, Zip}
 import music._
+import websocket.actors.MusicParamsActor.{GetTonic, TonicValue}
 
-class AdvancedFillerScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
+
+class AdvancedFillerScaleDecoder(musicParamsActor: ActorRef)(implicit ec: ExecutionContext) extends MerkleRootDecoder {
 
   private val maxGap = 5 // more than  a 4th of difference
 
@@ -31,8 +37,15 @@ class AdvancedFillerScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
   })
 
   private def noteFactory: Flow[(List[Char], List[Char]), Rhythm => Note, NotUsed] = Flow[(List[Char], List[Char])]
+    .mapAsync(1) {
+      case (t1, t2) =>
+        (musicParamsActor ? GetTonic)(3.seconds)
+          .mapTo[TonicValue]
+          .map((t1, t2, _))
+    }
     .mapConcat {
-      case (lastNoteStr :: _ :: Nil, noteStr :: directionStr :: Nil) =>
+      case (lastNoteStr :: _ :: Nil, noteStr :: directionStr :: Nil, TonicValue(tonicInt)) =>
+        val tonic = Tonic(tonicInt)
         val direction = directionMap(directionStr)
 
         val noteFactory = majorScale(_: Char)(tonic)(direction)
@@ -45,17 +58,17 @@ class AdvancedFillerScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
             lh.toTonic.`3m`(direction) :: lh.toTonic.`4`(direction) :: lh.toTonic.`5j`(direction) :: h.toTonic.tonic(direction) :: Nil
 
           case (h @ Height(_, gap), Height(_, lastGap)) if Math.abs(gap - lastGap) > maxGap =>
-            fillUpGap(direction, lastNoteStr, noteStr) :+ h
+            fillUpGap(direction, lastNoteStr, noteStr, tonic) :+ h
 
           case (h: Height, _) =>
             h :: Nil
         }
 
-      case _ => tonic.tonic(Up) :: Nil
+      case (_, _, TonicValue(tonicInt)) => Tonic(tonicInt).tonic(Up) :: Nil
     }
     .map(_.toNote)
 
-  private def fillUpGap(direction: Direction, lastNoteStr: Char, targetNoteStr: Char): List[Height] = {
+  private def fillUpGap(direction: Direction, lastNoteStr: Char, targetNoteStr: Char, tonic: Tonic): List[Height] = {
     val lastNoteIndex = keys.indexOf(lastNoteStr)
     val targetNoteIndex = keys.indexOf(targetNoteStr)
 

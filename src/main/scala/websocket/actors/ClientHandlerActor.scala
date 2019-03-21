@@ -9,21 +9,23 @@ import akka.stream.scaladsl.{BroadcastHub, Flow, GraphDSL, Keep, Sink, Source}
 import akka.stream.{ActorMaterializer, FlowShape, OverflowStrategy}
 import akka.util.Timeout
 import com.typesafe.scalalogging.StrictLogging
-import music.{BeatMaker, Note}
-import websocket.actors.BpmActor.{Bpm, ChangeBpm, GetBpm}
+import music.{BeatMaker, MusicSource, Note}
+import websocket.actors.MusicParamsActor.{BpmValue, ChangeBpm, ChangeTonic, GetBpm}
 import websocket.actors.ClientHandlerActor.GetWebsocketFlow
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
-class ClientHandlerActor(musicSource: Source[Note, NotUsed], beatMaker: BeatMaker) extends Actor with StrictLogging {
+class ClientHandlerActor(beatMaker: BeatMaker) extends Actor with StrictLogging {
   implicit val am: ActorMaterializer = ActorMaterializer()
   implicit val exCtx: ExecutionContextExecutor = context.dispatcher
   implicit val askTimeout: Timeout = Timeout(30.seconds)
 
   private val bufferSize = 1024
 
-  private val bpmActor = context.actorOf(BpmActor.props)
+  private val musicParamsActor = context.actorOf(MusicParamsActor.props)
+
+  private val musicSource = new MusicSource(musicParamsActor).source
 
   private val (down, publisher) = Source
     .actorRef[String](bufferSize, OverflowStrategy.fail)
@@ -31,14 +33,18 @@ class ClientHandlerActor(musicSource: Source[Note, NotUsed], beatMaker: BeatMake
     .run()
 
   musicSource
-    .mapAsync(1)(n => (bpmActor ? GetBpm).map{ case Bpm(bpm) => beatMaker.play(bpm)(n) })
+    .mapAsync(1)(n => (musicParamsActor ? GetBpm).map{ case BpmValue(bpm) => beatMaker.play(bpm)(n) })
     .runForeach(down.!)
+    .recover {
+      case e => println(s"Error: ${e.getMessage}")
+    }
 
   context.system.scheduler.schedule(10.seconds, 10.seconds, down, "keep-alive")
 
   Sink.ignore.runWith(publisher) // so we don't buffer incoming messages when no client is listening
 
-  private val bpmRegex = "([0-9]+)".r
+  private val bpmRegex = "bpm=([0-9]+)".r
+  private val tonicRegex = "tonic=([0-9]+)".r
 
   override def receive: PartialFunction[Any, Unit] = {
     case GetWebsocketFlow =>
@@ -67,14 +73,15 @@ class ClientHandlerActor(musicSource: Source[Note, NotUsed], beatMaker: BeatMake
     case s: String =>
       println(s"received: $s")
       s match {
-        case bpmRegex(bpm) => bpmActor ! ChangeBpm(bpm.toInt)
-        case _             => down ! s
+        case bpmRegex(bpm)     => musicParamsActor ! ChangeBpm(bpm.toInt)
+        case tonicRegex(tonic) => musicParamsActor ! ChangeTonic(tonic.toInt)
+        case _                 => down ! s
       }
   }
 }
 
 object ClientHandlerActor {
-  def props(musicSource: Source[Note, NotUsed], beatMaker: BeatMaker) = Props(new ClientHandlerActor(musicSource, beatMaker))
+  def props(beatMaker: BeatMaker) = Props(new ClientHandlerActor(beatMaker))
 
   case object GetWebsocketFlow
 }

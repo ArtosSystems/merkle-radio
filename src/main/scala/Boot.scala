@@ -34,10 +34,9 @@ object Boot extends {
   def tonic = Tonic(440)
 
   def beatMaker = BeatMaker()
-  def source = new MusicSource(tonic).source
 
   override protected def initServices(implicit ec: ExecutionContext): Future[ServiceDefinition[Unit]] = Future {
-    val handler = system.actorOf(ClientHandlerActor.props(source, beatMaker))
+    val handler = system.actorOf(ClientHandlerActor.props(beatMaker))
 
     def routes: Route = {
       path("ws") {
