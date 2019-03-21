@@ -3,7 +3,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Sink, Source, Zip}
 import akka.stream.{ActorMaterializer, OverflowStrategy, SourceShape}
-import decoder.{PentatonicScaleDecoder, RhythmMaker}
+import decoder.{AdvancedFillerScaleDecoder, RhythmMaker}
 import io.artos.activities.MerkleTreeCreatedActivity
 import music._
 import stream.MerkleRootSource
@@ -27,7 +27,7 @@ object Boot extends App {
 
     val in = (new MerkleRootSource).source
 
-    val notesFlow = new PentatonicScaleDecoder(tonic).decode
+    val notesFlow = new AdvancedFillerScaleDecoder(tonic).decode
     val rhythmFlow = RhythmMaker.produceRhythm
 
     val drop0x = Flow[MerkleTreeCreatedActivity].map(_.merkleRoot.drop(2))

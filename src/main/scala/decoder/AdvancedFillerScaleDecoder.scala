@@ -5,7 +5,7 @@ import akka.stream.FlowShape
 import akka.stream.scaladsl.{Flow, GraphDSL, Unzip, Zip}
 import music._
 
-class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
+class AdvancedFillerScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
   private val maxGap = 5 // more than  a 4th of difference
 
@@ -35,7 +35,7 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
       case (lastNoteStr :: _ :: Nil, noteStr :: directionStr :: Nil) =>
         val direction = directionMap(directionStr)
 
-        val noteFactory = notesMap(_: Char)(tonic)(direction)
+        val noteFactory = majorScale(_: Char)(tonic)(direction)
 
         val target = noteFactory(noteStr)
         val lastNote = noteFactory(lastNoteStr)
@@ -59,7 +59,7 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     val lastNoteIndex = keys.indexOf(lastNoteStr)
     val targetNoteIndex = keys.indexOf(targetNoteStr)
 
-    val notesIndexed = notesMap.toIndexedSeq.sortBy(_._1)
+    val notesIndexed = majorScale.toIndexedSeq.sortBy(_._1)
     val ints = List.range(lastNoteIndex, targetNoteIndex)
     val fillers = ints.map(notesIndexed).map(_._2(tonic)(direction))
     fillers
@@ -84,7 +84,26 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     'f' -> Up,
   )
 
-  private val notesMap: Map[Char, Tonic => Direction => Height] = Map(
+  private val majorScale: Map[Char, Tonic => Direction => Height] = Map(
+    '0' -> octaveDown(_.tonic),
+    '1' -> octaveDown(_.`2M`),
+    '2' -> octaveDown(_.`3M`),
+    '3' -> octaveDown(_.`4`),
+    '4' -> (_.tonic),
+    '5' -> (_.`2M`),
+    '6' -> (_.`3M`),
+    '7' -> (_.`4`),
+    '8' -> (_.`5j`),
+    '9' -> (_.`6M`),
+    'a' -> (_.`7M`),
+    'b' -> octaveUp(_.tonic),
+    'c' -> octaveUp(_.`2M`),
+    'd' -> octaveUp(_.`3M`),
+    'e' -> octaveUp(_.`4`),
+    'f' -> (_.tonic),
+  )
+
+  private val minorPentatonicMap: Map[Char, Tonic => Direction => Height] = Map(
     '0' -> (_.tonic),
 
     '1' -> octaveDown(_.tonic),
@@ -106,7 +125,7 @@ class PentatonicScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     'f' -> octaveUp(_.`7m`),
   )
 
-  private val keys = notesMap.keys.toIndexedSeq.sorted
+  private val keys = majorScale.keys.toIndexedSeq.sorted
 
   private def octaveDown(gap: Tonic => Direction => Height)(n: Tonic) =
     (d: Direction) => gap(n.octave(Down).toTonic)(d)
