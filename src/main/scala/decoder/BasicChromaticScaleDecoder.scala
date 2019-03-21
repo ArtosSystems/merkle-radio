@@ -2,22 +2,19 @@ package decoder
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import io.artos.activities.MerkleTreeCreatedActivity
 import music._
 
 class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
-  override def decode: Flow[MerkleTreeCreatedActivity, Note, NotUsed] = Flow[MerkleTreeCreatedActivity]
-    .map(_.merkleRoot)
-    .map(_.drop(2))
+  override def decode: Flow[String, Rhythm => Note, NotUsed] = Flow[String]
     .mapConcat[String](_.sliding(3, 3).toList)
     .map(_.toList)
-    .map {
+    .mapConcat {
       case noteStr :: rhythmStr :: directionStr :: Nil =>
         val direction = directionMap(directionStr)
-        val rhythm = rythmeMap(rhythmStr)
+        val rhythm = rhythmMap(rhythmStr)
 
-        val nextNote = notesMap(noteStr)(tonic)(direction, rhythm)
+        val nextNote = notesMap(noteStr)(tonic)(direction)
 
         rhythm match {
           case DDouble   => nextNote :: nextNote :: Nil
@@ -27,7 +24,7 @@ class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
 
       case _ => Nil
     }
-    .mapConcat(identity)
+    .map(_.toNote)
 
   private val directionMap: Map[Char, Direction] = Map(
     '0' -> Down,
@@ -48,7 +45,7 @@ class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     'f' -> Up,
   )
 
-  private val rythmeMap: Map[Char, Rhythm] = Map(
+  private val rhythmMap: Map[Char, Rhythm] = Map(
     '0' -> White,
     '4' -> White,
     '8' -> White,
@@ -67,7 +64,7 @@ class BasicChromaticScaleDecoder(tonic: Tonic) extends MerkleRootDecoder {
     'f' -> Quadruple,
   )
 
-  private val notesMap: Map[Char, Tonic => (Direction, Rhythm) => Note] = Map(
+  private val notesMap: Map[Char, Tonic => Direction => Height] = Map(
     '0' -> (n => n.octave),
     '1' -> (n => n.`2m`),
     '2' -> (n => n.`2M`),
