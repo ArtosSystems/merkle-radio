@@ -4,10 +4,12 @@ import akka.NotUsed
 import akka.actor.{Actor, ActorContext, ActorRef, Props}
 import akka.stream.scaladsl.Source
 import music.Note
-import websocket.actors.BpmActor.{Bpm, ChangeBpm}
+import websocket.actors.BpmActor.ChangeBpm
 import websocket.actors.MasterActor._
 
 class MasterActor extends Actor {
+
+  println("creation master actor! " + context.self.path)
 
   private val keepAliveActor = createKeepAliveActor
 

@@ -20,7 +20,7 @@ object Boot extends App {
 
   val tonic = Tonic(440)
 
-  val source: Source[Note, NotUsed] = Source.fromGraph(GraphDSL.create() { implicit builder =>
+  def source: Source[Note, NotUsed] = Source.fromGraph(GraphDSL.create() { implicit builder =>
     import akka.stream.scaladsl.GraphDSL.Implicits._
 
     val in = (new MerkleRootSource).source
@@ -51,6 +51,6 @@ object Boot extends App {
     serverSource.to(Sink.foreach { connection =>
       println("Accepted new connection from " + connection.remoteAddress)
 
-      connection handleWithAsyncHandler WsServer(beatMaker, source).requestHandlerAsync
+      connection handleWithAsyncHandler WsServer(beatMaker, source, tonic).requestHandlerAsync
     }).run()
 }
