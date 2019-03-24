@@ -17,7 +17,7 @@ class BpmActor extends Actor {
       currentBpm = beats
 
     case GetBpm              =>
-      //println(currentBpm)
+      //println("request received: " + sender().path)
       sender() ! Bpm(currentBpm)
   }
 }
