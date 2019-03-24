@@ -8,6 +8,7 @@ import io.artos.activities.MerkleTreeCreatedActivity
 import music._
 import stream.MerkleRootSource
 import websocket.WsServer
+import websocket.actors.MasterActor
 
 import scala.concurrent.Future
 
@@ -47,10 +48,12 @@ object Boot extends App {
 
   val serverSource = Http().bind(interface = "localhost", port = 8080)
 
+  private val masterActor = system.actorOf(MasterActor.props)
+
   val bindingFuture: Future[Http.ServerBinding] =
     serverSource.to(Sink.foreach { connection =>
       println("Accepted new connection from " + connection.remoteAddress)
 
-      connection handleWithAsyncHandler WsServer(beatMaker, source, tonic).requestHandlerAsync
+      connection handleWithAsyncHandler WsServer(beatMaker, source, tonic, masterActor).requestHandlerAsync
     }).run()
 }
