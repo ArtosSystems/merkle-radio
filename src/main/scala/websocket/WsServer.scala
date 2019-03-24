@@ -50,8 +50,8 @@ class WsServer private(beatMaker: BeatMaker, noteSource: Source[Note, NotUsed], 
 
 object WsServer{
 
+  import GraphDSL.Implicits._
   implicit val askTimeout: Timeout = Timeout(30.seconds)
-
 
   def apply(beatMaker: BeatMaker, noteSource: Source[Note, NotUsed], masterActor: ActorRef)
            (implicit system: ActorSystem, mat: Materializer, ec: ExecutionContext) = new WsServer(beatMaker, noteSource, masterActor)
@@ -59,8 +59,6 @@ object WsServer{
 
   def inboundStream(masterActor: ActorRef)(implicit mat: Materializer, ec: ExecutionContext): Sink[Message, NotUsed] = {
     val inSink = Sink.fromGraph(GraphDSL.create() { implicit b =>
-
-      import GraphDSL.Implicits._
 
       val messageReader: FlowShape[Message, String] = b.add(
         Flow[Message]
@@ -98,9 +96,8 @@ object WsServer{
   def outboundStream(musicSource: Source[Note, NotUsed], masterActor: ActorRef, beatMaker: BeatMaker)(implicit mat: Materializer, ec: ExecutionContext): Source[Strict, NotUsed] = {
 
     val outSource = Source.fromGraph(GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
 
-      val bpmQuery = Flow[Note].mapAsync(1){note => (masterActor ? GetBpm).map { case Bpm(bpm) => (note, bpm) }}
+      val bpmQuery = Flow[Note].mapAsync(1){ note => (masterActor ? GetBpm).map { case Bpm(bpm) => (note, bpm) } }
 
       val play = Flow[(Note, Int)].map{ case (note, beats) =>
         println("Playing: " + note)
