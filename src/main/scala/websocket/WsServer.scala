@@ -108,7 +108,7 @@ object WsServer{
 
       val bcast = b.add(Broadcast[Message](2))
 
-      // makes not much sense, but useful for practicing...
+      // doesn't make much sense, but useful for practicing...
       bcast.out(0) ~> bpmExtractor  ~> bpmChanger
       bcast.out(1) ~> messageReader ~> passThrough  ~> debugSink
 
