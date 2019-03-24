@@ -11,7 +11,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Sink, Source}
 import akka.util.Timeout
 import io.circe.syntax._
-import music.{BeatMaker, Note, Tonic}
+import music.{BeatMaker, Note}
 import websocket.WsServer._
 import websocket.actors.BpmActor.{Bpm, ChangeBpm}
 import websocket.actors.MasterActor.{GetBpm, PingServer}
@@ -20,17 +20,16 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
 
-class WsServer private(beatMaker: BeatMaker, noteSource: Source[Note, NotUsed], tonic: Tonic, masterActor: ActorRef)(implicit system: ActorSystem, mat: Materializer, ec: ExecutionContext) {
+class WsServer private(beatMaker: BeatMaker, noteSource: Source[Note, NotUsed], masterActor: ActorRef)(implicit system: ActorSystem, mat: Materializer, ec: ExecutionContext) {
+
+  private val out = outboundStream(noteSource, masterActor, beatMaker)
+  private val in = inboundStream(masterActor)
 
   system.scheduler.schedule(1.minute, 1.minute)(masterActor ! PingServer)
 
   val requestHandlerAsync: HttpRequest => Future[HttpResponse] = {
 
-    case req @ HttpRequest(GET, Uri.Path("/note-stream"), _, _, _)  => {
-
-      val (in, out) = noteStream(noteSource, beatMaker, masterActor)
-      Future{ handleWsRequest(req, in, out) }
-    }
+    case req @ HttpRequest(GET, Uri.Path("/note-stream"), _, _, _)  => Future{ handleWsRequest(req, in, out) }
 
     case r: HttpRequest => Future{
       r.discardEntityBytes() // important to drain incoming HTTP Entity stream
@@ -54,33 +53,11 @@ object WsServer{
   implicit val askTimeout: Timeout = Timeout(30.seconds)
 
 
-  def apply(beatMaker: BeatMaker, noteSource: Source[Note, NotUsed], tonic: Tonic, masterActor: ActorRef)
-           (implicit system: ActorSystem, mat: Materializer, ec: ExecutionContext) = new WsServer(beatMaker, noteSource, tonic, masterActor)
+  def apply(beatMaker: BeatMaker, noteSource: Source[Note, NotUsed], masterActor: ActorRef)
+           (implicit system: ActorSystem, mat: Materializer, ec: ExecutionContext) = new WsServer(beatMaker, noteSource, masterActor)
 
 
-  def playingFlow(beatMaker: BeatMaker, masterActor: ActorRef)(implicit mat: Materializer, ec: ExecutionContext): Flow[Note, Note, NotUsed] =
-    Flow[Note]
-      .mapAsync(1){ n =>
-        (masterActor ? GetBpm)
-          .map { case Bpm(value) => value }
-          .map(bpm => (n, bpm))
-      }
-      .map { case (note, beats) =>
-        println("Playing: " + note)
-        beatMaker.play(beats)(note)
-        note
-      }
-
-
-  def noteStream(noteSource: Source[Note, NotUsed], beatMaker: BeatMaker, masterActor: ActorRef)(implicit mat: Materializer, ec: ExecutionContext) = { //: Flow[Message, TextMessage, NotUsed] = {
-
-    def source(master: ActorRef): Source[String, NotUsed] =
-      noteSource
-        .via(playingFlow(beatMaker, master))
-        .map(_.asJson.noSpaces)
-
-    val musicSource = source(masterActor)
-
+  def inboundStream(masterActor: ActorRef)(implicit mat: Materializer, ec: ExecutionContext): Sink[Message, NotUsed] = {
     val inSink = Sink.fromGraph(GraphDSL.create() { implicit b =>
 
       import GraphDSL.Implicits._
@@ -88,10 +65,10 @@ object WsServer{
       val messageReader: FlowShape[Message, String] = b.add(
         Flow[Message]
           .mapAsync(1) {
-          case tm: TextMessage    => tm.textStream.runFold("")(_ + _).map(Some(_))
-          // ignore binary messages but drain content to avoid the stream being clogged
-          case bm: BinaryMessage  => bm.dataStream.runWith(Sink.ignore).map(_ => None)
-        }.collect{ case Some(msg) => msg }
+            case tm: TextMessage    => tm.textStream.runFold("")(_ + _).map(Some(_))
+            // ignore binary messages but drain content to avoid the stream being clogged
+            case bm: BinaryMessage  => bm.dataStream.runWith(Sink.ignore).map(_ => None)
+          }.collect{ case Some(msg) => msg }
       )
 
       val bpmRegex = "bpm=([0-9]+)".r
@@ -106,26 +83,42 @@ object WsServer{
 
       val debugSink = Sink.foreach[String](msg => println(s"RECEIVED: $msg, will be ignored..." ))
 
-      val bcast = b.add(Broadcast[Message](2))
+      val broadcast = b.add(Broadcast[Message](2))
 
       // doesn't make much sense, but useful for practicing...
-      bcast.out(0) ~> bpmExtractor  ~> bpmChanger
-      bcast.out(1) ~> messageReader ~> passThrough  ~> debugSink
+      broadcast.out(0) ~> bpmExtractor  ~> bpmChanger
+      broadcast.out(1) ~> messageReader ~> passThrough  ~> debugSink
 
-      SinkShape(bcast.in)
+      SinkShape(broadcast.in)
     })
 
+    inSink
+  }
+
+  def outboundStream(musicSource: Source[Note, NotUsed], masterActor: ActorRef, beatMaker: BeatMaker)(implicit mat: Materializer, ec: ExecutionContext): Source[Strict, NotUsed] = {
 
     val outSource = Source.fromGraph(GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
 
-      val flow = b.add(Flow[String].map(TextMessage(_)))
-      musicSource ~> flow
+      val bpmQuery = Flow[Note].mapAsync(1){note => (masterActor ? GetBpm).map { case Bpm(bpm) => (note, bpm) }}
 
-      SourceShape(flow.out)
+      val play = Flow[(Note, Int)].map{ case (note, beats) =>
+        println("Playing: " + note)
+        beatMaker.play(beats)(note)
+        note
+      }
+
+      val pushToClient = b.add(Flow[String].map(TextMessage(_)))
+
+      val serialize = Flow[Note].map(_.asJson.noSpaces)
+
+      musicSource ~> bpmQuery ~> play ~> serialize ~> pushToClient
+
+      SourceShape(pushToClient.out)
+
     })
 
-    (inSink, outSource)
+    outSource
   }
 }
 

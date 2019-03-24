@@ -54,6 +54,6 @@ object Boot extends App {
     serverSource.to(Sink.foreach { connection =>
       println("Accepted new connection from " + connection.remoteAddress)
 
-      connection handleWithAsyncHandler WsServer(beatMaker, source, tonic, masterActor).requestHandlerAsync
+      connection handleWithAsyncHandler WsServer(beatMaker, source, masterActor).requestHandlerAsync
     }).run()
 }

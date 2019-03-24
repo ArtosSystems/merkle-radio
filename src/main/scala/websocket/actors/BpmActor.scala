@@ -8,17 +8,13 @@ import websocket.actors.MasterActor.GetBpm
 class BpmActor extends Actor {
   println("creation bpm actor! " + context.self.path)
 
-  private var currentBpm = 10
+  override def receive: Receive = onMessage(currentBpm = 10)
 
-  override def receive: Receive = {
+  private def onMessage(currentBpm: Int): Receive = {
 
-    case ChangeBpm(beats)    =>
-      //println(s"$currentBpm -> $beats")
-      currentBpm = beats
+    case ChangeBpm(beats) => context.become(onMessage(beats))
 
-    case GetBpm              =>
-      //println("request received: " + sender().path)
-      sender() ! Bpm(currentBpm)
+    case GetBpm => sender() ! Bpm(currentBpm)
   }
 }
 
