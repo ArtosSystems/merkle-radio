@@ -25,7 +25,7 @@ class WsServer private(beatMaker: BeatMaker, noteSource: Source[Note, NotUsed], 
   private val out = outboundStream(noteSource, masterActor, beatMaker)
   private val in = inboundStream(masterActor)
 
-  system.scheduler.schedule(1.minute, 1.minute)(masterActor ! PingServer)
+  system.scheduler.schedule(1.minute, 1.minute)(masterActor ! PingServer) //TODO should this happen for each connection ???
 
   val requestHandlerAsync: HttpRequest => Future[HttpResponse] = {
 
@@ -40,7 +40,7 @@ class WsServer private(beatMaker: BeatMaker, noteSource: Source[Note, NotUsed], 
   private def handleWsRequest(req: HttpRequest, inSink: Sink[Message, NotUsed], outSource: Source[Message, NotUsed]): HttpResponse = {
 
     req.header[UpgradeToWebSocket] match {
-      case Some(upgrade) => upgrade.handleMessagesWithSinkSource(inSink, outSource) //upgrade.handleMessages(handler)
+      case Some(upgrade) => upgrade.handleMessagesWithSinkSource(inSink, outSource)
       case None          => HttpResponse(400, entity = "Not a valid websocket request!")
     }
   }
