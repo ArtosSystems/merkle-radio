@@ -48,12 +48,13 @@ object Boot extends App {
 
   val serverSource = Http().bind(interface = "localhost", port = 8080)
 
-  private val masterActor = system.actorOf(MasterActor.props)
+  val masterActor = system.actorOf(MasterActor.props)
+  val server = WsServer(beatMaker, source, masterActor)
 
   val bindingFuture: Future[Http.ServerBinding] =
     serverSource.to(Sink.foreach { connection =>
       println("Accepted new connection from " + connection.remoteAddress)
 
-      connection handleWithAsyncHandler WsServer(beatMaker, source, masterActor).requestHandlerAsync
+      connection handleWithAsyncHandler server.requestHandlerAsync
     }).run()
 }
