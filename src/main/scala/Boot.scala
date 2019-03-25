@@ -31,8 +31,6 @@ object Boot extends {
   with StrictLogging
   with App {
 
-  def tonic = Tonic(440)
-
   def beatMaker = BeatMaker()
 
   override protected def initServices(implicit ec: ExecutionContext): Future[ServiceDefinition[Unit]] = Future {

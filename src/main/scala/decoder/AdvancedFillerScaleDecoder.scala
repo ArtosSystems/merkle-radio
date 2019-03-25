@@ -98,10 +98,10 @@ class AdvancedFillerScaleDecoder(musicParamsActor: ActorRef)(implicit ec: Execut
   )
 
   private val majorScale: Map[Char, Tonic => Direction => Height] = Map(
-    '0' -> octaveDown(_.tonic),
-    '1' -> octaveDown(_.`2M`),
-    '2' -> octaveDown(_.`3M`),
-    '3' -> octaveDown(_.`4`),
+    '0' -> octaveDown(_.`4`),
+    '1' -> octaveDown(_.`5j`),
+    '2' -> octaveDown(_.`6M`),
+    '3' -> octaveDown(_.`7M`),
     '4' -> (_.tonic),
     '5' -> (_.`2M`),
     '6' -> (_.`3M`),
